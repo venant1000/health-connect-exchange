@@ -17,6 +17,9 @@ interface ConsultationCardProps {
   type: 'video' | 'audio' | 'chat';
   price: number;
   onClick?: () => void;
+  onActionClick?: () => void;
+  actionLabel?: string;
+  actionIcon?: React.ReactNode;
 }
 
 const ConsultationCard = ({
@@ -30,6 +33,9 @@ const ConsultationCard = ({
   type,
   price,
   onClick,
+  onActionClick,
+  actionLabel,
+  actionIcon,
 }: ConsultationCardProps) => {
   const getStatusColor = () => {
     switch (status) {
@@ -109,10 +115,23 @@ const ConsultationCard = ({
               variant="outline" 
               size="sm"
               className="text-xs"
+              onClick={onClick}
             >
               View Details
             </Button>
-            {status === 'upcoming' && (
+            {/* Custom action button based on provided props */}
+            {actionLabel && onActionClick && (
+              <Button 
+                variant="default" 
+                size="sm"
+                className="text-xs"
+                onClick={onActionClick}
+              >
+                {actionIcon}{actionIcon && ' '}{actionLabel}
+              </Button>
+            )}
+            {/* Default action buttons based on status (used when actionLabel is not provided) */}
+            {!actionLabel && status === 'upcoming' && (
               <Button 
                 variant="default" 
                 size="sm"
@@ -121,7 +140,7 @@ const ConsultationCard = ({
                 Join Now
               </Button>
             )}
-            {status === 'completed' && (
+            {!actionLabel && status === 'completed' && (
               <Button 
                 variant="outline" 
                 size="sm"
@@ -130,7 +149,7 @@ const ConsultationCard = ({
                 Leave Review
               </Button>
             )}
-            {status === 'pending' && (
+            {!actionLabel && status === 'pending' && (
               <Button 
                 variant="default" 
                 size="sm"
