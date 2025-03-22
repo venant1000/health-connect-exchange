@@ -5,6 +5,8 @@ import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useNavigate } from "react-router-dom";
+import { db } from "@/services/database";
 
 interface DoctorCardProps {
   id: string;
@@ -31,6 +33,22 @@ const DoctorCard = ({
   availability,
   onClick,
 }: DoctorCardProps) => {
+  const navigate = useNavigate();
+  
+  const handleViewProfile = () => {
+    // In a real app, navigate to doctor profile page
+    console.log("View doctor profile:", id);
+  };
+  
+  const handleBookConsultation = () => {
+    if (onClick) {
+      onClick();
+    } else {
+      // Default booking flow if no onClick provided
+      navigate(`/patient-dashboard/book-doctor?doctorId=${id}`);
+    }
+  };
+
   return (
     <motion.div
       whileHover={{ scale: 1.02 }}
@@ -97,6 +115,7 @@ const DoctorCard = ({
               variant="outline" 
               size="sm"
               className="text-xs"
+              onClick={handleViewProfile}
             >
               View Profile
             </Button>
@@ -104,7 +123,7 @@ const DoctorCard = ({
               variant="default" 
               size="sm"
               className="text-xs"
-              onClick={onClick}
+              onClick={handleBookConsultation}
             >
               Book Consultation
             </Button>

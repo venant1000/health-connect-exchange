@@ -1,5 +1,5 @@
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { CircleUser, DollarSign, BarChart3, Users, CheckCircle, XCircle, ArrowRight, Search } from "lucide-react";
@@ -11,71 +11,38 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { db, initializeDatabase, Doctor, Patient, Consultation } from "@/services/database";
+import AdminSettings from "./AdminSettings";
 
-// Sample data
-const pendingDoctors = [
-  {
-    id: "1",
-    name: "Dr. Sarah Johnson",
-    specialty: "Neurologist",
-    email: "sarah.johnson@example.com",
-    applicationDate: "2023-10-01",
-    documents: ["medical_license.pdf", "certification.pdf", "resume.pdf"],
-  },
-  {
-    id: "2",
-    name: "Dr. Michael Brown",
-    specialty: "Dermatologist",
-    email: "michael.brown@example.com",
-    applicationDate: "2023-10-05",
-    documents: ["license.pdf", "board_certification.pdf", "cv.pdf"],
-  },
-  {
-    id: "3",
-    name: "Dr. Jessica Martinez",
-    specialty: "Psychiatrist",
-    email: "jessica.martinez@example.com",
-    applicationDate: "2023-10-10",
-    documents: ["medical_license.pdf", "psychiatry_cert.pdf", "resume.pdf"],
-  },
-];
-
-const recentTransactions = [
-  {
-    id: "1",
-    patient: "John Doe",
-    doctor: "Dr. Emma Wilson",
-    amount: 120,
-    date: "2023-10-15",
-    status: "completed",
-  },
-  {
-    id: "2",
-    patient: "Alice Smith",
-    doctor: "Dr. Michael Chen",
-    amount: 100,
-    date: "2023-10-14",
-    status: "completed",
-  },
-  {
-    id: "3",
-    patient: "Bob Johnson",
-    doctor: "Dr. Lisa Johnson",
-    amount: 150,
-    date: "2023-10-13",
-    status: "pending",
-  },
-  {
-    id: "4",
-    patient: "Emma Davis",
-    doctor: "Dr. Andrew Miller",
-    amount: 135,
-    date: "2023-10-12",
-    status: "refunded",
-  },
-];
+// Initialize database
+initializeDatabase();
 
 const AdminHome = () => {
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [consultations, setConsultations] = useState<Consultation[]>([]);
+  const [pendingDoctors, setPendingDoctors] = useState<Doctor[]>([]);
+  const [transactions, setTransactions] = useState<Consultation[]>([]);
+  
+  useEffect(() => {
+    // Load data from database
+    const allDoctors = db.doctors.getAll();
+    const pending = db.doctors.getByStatus('pending');
+    const allPatients = db.patients.getAll();
+    const allConsultations = db.consultations.getAll();
+    
+    setDoctors(allDoctors);
+    setPendingDoctors(pending);
+    setPatients(allPatients);
+    setConsultations(allConsultations);
+    setTransactions(allConsultations.slice(0, 4)); // Just use first 4 consultations for demo
+  }, []);
+  
+  const getTotalRevenue = () => {
+    return consultations.reduce((sum, c) => sum + c.price, 0).toFixed(2);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -94,7 +61,7 @@ const AdminHome = () => {
             <div className="flex items-center">
               <Users className="h-8 w-8 text-health-500 mr-3" />
               <div>
-                <p className="text-2xl font-semibold">1,248</p>
+                <p className="text-2xl font-semibold">{doctors.length + patients.length}</p>
                 <p className="text-sm text-muted-foreground">
                   <span className="text-green-600">+12%</span> from last month
                 </p>
@@ -111,7 +78,7 @@ const AdminHome = () => {
             <div className="flex items-center">
               <CircleUser className="h-8 w-8 text-health-500 mr-3" />
               <div>
-                <p className="text-2xl font-semibold">247</p>
+                <p className="text-2xl font-semibold">{doctors.length}</p>
                 <p className="text-sm text-muted-foreground">
                   <span className="text-green-600">+5%</span> from last month
                 </p>
@@ -128,7 +95,7 @@ const AdminHome = () => {
             <div className="flex items-center">
               <DollarSign className="h-8 w-8 text-health-500 mr-3" />
               <div>
-                <p className="text-2xl font-semibold">$56,429</p>
+                <p className="text-2xl font-semibold">${getTotalRevenue()}</p>
                 <p className="text-sm text-muted-foreground">
                   <span className="text-green-600">+18%</span> from last month
                 </p>
@@ -145,7 +112,7 @@ const AdminHome = () => {
             <div className="flex items-center">
               <BarChart3 className="h-8 w-8 text-health-500 mr-3" />
               <div>
-                <p className="text-2xl font-semibold">842</p>
+                <p className="text-2xl font-semibold">{consultations.length}</p>
                 <p className="text-sm text-muted-foreground">
                   <span className="text-green-600">+24%</span> from last month
                 </p>
@@ -173,30 +140,38 @@ const AdminHome = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pendingDoctors.map((doctor) => (
-                    <TableRow key={doctor.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center">
-                          <Avatar className="h-8 w-8 mr-2">
-                            <AvatarFallback>{doctor.name.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          {doctor.name}
-                        </div>
-                      </TableCell>
-                      <TableCell>{doctor.specialty}</TableCell>
-                      <TableCell>{new Date(doctor.applicationDate).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button variant="outline" size="sm" className="h-8 w-8 p-0">
-                            <CheckCircle className="h-4 w-4 text-green-600" />
-                          </Button>
-                          <Button variant="outline" size="sm" className="h-8 w-8 p-0">
-                            <XCircle className="h-4 w-4 text-red-600" />
-                          </Button>
-                        </div>
+                  {pendingDoctors.length > 0 ? (
+                    pendingDoctors.map((doctor) => (
+                      <TableRow key={doctor.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center">
+                            <Avatar className="h-8 w-8 mr-2">
+                              <AvatarFallback>{doctor.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            {doctor.name}
+                          </div>
+                        </TableCell>
+                        <TableCell>{doctor.specialty}</TableCell>
+                        <TableCell>MM/DD/YYYY</TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                              <CheckCircle className="h-4 w-4 text-green-600" />
+                            </Button>
+                            <Button variant="outline" size="sm" className="h-8 w-8 p-0">
+                              <XCircle className="h-4 w-4 text-red-600" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-4 text-muted-foreground">
+                        No pending doctor applications
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </div>
@@ -226,11 +201,11 @@ const AdminHome = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {recentTransactions.map((transaction) => (
+                  {transactions.map((transaction) => (
                     <TableRow key={transaction.id}>
-                      <TableCell className="font-medium">{transaction.patient}</TableCell>
-                      <TableCell>{transaction.doctor}</TableCell>
-                      <TableCell>${transaction.amount}</TableCell>
+                      <TableCell className="font-medium">{transaction.patientName}</TableCell>
+                      <TableCell>{transaction.doctorName}</TableCell>
+                      <TableCell>${transaction.price}</TableCell>
                       <TableCell>
                         <Badge
                           variant="outline"
@@ -278,6 +253,67 @@ const AdminHome = () => {
 };
 
 const AdminDoctors = () => {
+  const { toast } = useToast();
+  const [allDoctors, setAllDoctors] = useState<Doctor[]>([]);
+  const [pendingDoctors, setPendingDoctors] = useState<Doctor[]>([]);
+  const [approvedDoctors, setApprovedDoctors] = useState<Doctor[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  useEffect(() => {
+    // Load data from database
+    const doctors = db.doctors.getAll();
+    const pending = db.doctors.getByStatus('pending');
+    const approved = db.doctors.getByStatus('approved');
+    
+    setAllDoctors(doctors);
+    setPendingDoctors(pending);
+    setApprovedDoctors(approved);
+  }, []);
+  
+  const handleApproveDoctor = (doctorId: string) => {
+    db.doctors.update(doctorId, { status: 'approved' });
+    
+    // Refresh data
+    const doctors = db.doctors.getAll();
+    const pending = db.doctors.getByStatus('pending');
+    const approved = db.doctors.getByStatus('approved');
+    
+    setAllDoctors(doctors);
+    setPendingDoctors(pending);
+    setApprovedDoctors(approved);
+    
+    toast({
+      title: "Doctor approved",
+      description: "The doctor has been approved and can now log in.",
+    });
+  };
+  
+  const handleRejectDoctor = (doctorId: string) => {
+    db.doctors.update(doctorId, { status: 'rejected' });
+    
+    // Refresh data
+    const doctors = db.doctors.getAll();
+    const pending = db.doctors.getByStatus('pending');
+    const approved = db.doctors.getByStatus('approved');
+    
+    setAllDoctors(doctors);
+    setPendingDoctors(pending);
+    setApprovedDoctors(approved);
+    
+    toast({
+      title: "Doctor rejected",
+      description: "The doctor application has been rejected.",
+    });
+  };
+  
+  const filteredDoctors = (doctors: Doctor[]) => {
+    if (!searchTerm) return doctors;
+    return doctors.filter(doctor => 
+      doctor.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      doctor.specialty.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -289,7 +325,12 @@ const AdminDoctors = () => {
         <h1 className="text-3xl font-semibold">Manage Doctors</h1>
         <div className="relative w-64">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search doctors..." className="pl-9" />
+          <Input 
+            placeholder="Search doctors..." 
+            className="pl-9" 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
       </div>
       
@@ -308,71 +349,52 @@ const AdminDoctors = () => {
                     <TableHead>Name</TableHead>
                     <TableHead>Specialty</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Joined</TableHead>
-                    <TableHead>Patients</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>Price</TableHead>
                     <TableHead>Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  <TableRow>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center">
-                        <Avatar className="h-8 w-8 mr-2">
-                          <AvatarFallback>EM</AvatarFallback>
-                        </Avatar>
-                        Dr. Emma Wilson
-                      </div>
-                    </TableCell>
-                    <TableCell>Cardiologist</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="bg-green-100 text-green-800">Active</Badge>
-                    </TableCell>
-                    <TableCell>Jan 15, 2023</TableCell>
-                    <TableCell>42</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm">View</Button>
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center">
-                        <Avatar className="h-8 w-8 mr-2">
-                          <AvatarFallback>MC</AvatarFallback>
-                        </Avatar>
-                        Dr. Michael Chen
-                      </div>
-                    </TableCell>
-                    <TableCell>Neurologist</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="bg-green-100 text-green-800">Active</Badge>
-                    </TableCell>
-                    <TableCell>Mar 22, 2023</TableCell>
-                    <TableCell>28</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm">View</Button>
-                    </TableCell>
-                  </TableRow>
-                  {pendingDoctors.map((doctor) => (
-                    <TableRow key={doctor.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center">
-                          <Avatar className="h-8 w-8 mr-2">
-                            <AvatarFallback>{doctor.name.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          {doctor.name}
-                        </div>
-                      </TableCell>
-                      <TableCell>{doctor.specialty}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="bg-yellow-100 text-yellow-800">Pending</Badge>
-                      </TableCell>
-                      <TableCell>-</TableCell>
-                      <TableCell>0</TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm">Review</Button>
+                  {filteredDoctors(allDoctors).length > 0 ? (
+                    filteredDoctors(allDoctors).map((doctor) => (
+                      <TableRow key={doctor.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center">
+                            <Avatar className="h-8 w-8 mr-2">
+                              <AvatarFallback>{doctor.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            {doctor.name}
+                          </div>
+                        </TableCell>
+                        <TableCell>{doctor.specialty}</TableCell>
+                        <TableCell>
+                          <Badge 
+                            variant="outline" 
+                            className={
+                              doctor.status === 'approved'
+                                ? "bg-green-100 text-green-800"
+                                : doctor.status === 'pending'
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-red-100 text-red-800"
+                            }
+                          >
+                            {doctor.status.charAt(0).toUpperCase() + doctor.status.slice(1)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{doctor.location}</TableCell>
+                        <TableCell>${doctor.price}/hr</TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm">View</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
+                        No doctors found
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -386,41 +408,59 @@ const AdminDoctors = () => {
                   <TableRow>
                     <TableHead>Name</TableHead>
                     <TableHead>Specialty</TableHead>
-                    <TableHead>Applied On</TableHead>
+                    <TableHead>Location</TableHead>
                     <TableHead>Documents</TableHead>
                     <TableHead>Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {pendingDoctors.map((doctor) => (
-                    <TableRow key={doctor.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center">
-                          <Avatar className="h-8 w-8 mr-2">
-                            <AvatarFallback>{doctor.name.charAt(0)}</AvatarFallback>
-                          </Avatar>
-                          {doctor.name}
-                        </div>
-                      </TableCell>
-                      <TableCell>{doctor.specialty}</TableCell>
-                      <TableCell>{new Date(doctor.applicationDate).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        <Button variant="link" size="sm" className="p-0 h-auto">
-                          {doctor.documents.length} documents
-                        </Button>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex space-x-2">
-                          <Button variant="outline" size="sm" className="text-green-600">
-                            Approve
+                  {filteredDoctors(pendingDoctors).length > 0 ? (
+                    filteredDoctors(pendingDoctors).map((doctor) => (
+                      <TableRow key={doctor.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center">
+                            <Avatar className="h-8 w-8 mr-2">
+                              <AvatarFallback>{doctor.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            {doctor.name}
+                          </div>
+                        </TableCell>
+                        <TableCell>{doctor.specialty}</TableCell>
+                        <TableCell>{doctor.location}</TableCell>
+                        <TableCell>
+                          <Button variant="link" size="sm" className="p-0 h-auto">
+                            View documents
                           </Button>
-                          <Button variant="outline" size="sm" className="text-red-600">
-                            Reject
-                          </Button>
-                        </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex space-x-2">
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-green-600"
+                              onClick={() => handleApproveDoctor(doctor.id)}
+                            >
+                              Approve
+                            </Button>
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              className="text-red-600"
+                              onClick={() => handleRejectDoctor(doctor.id)}
+                            >
+                              Reject
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center py-4 text-muted-foreground">
+                        No pending doctor applications
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -435,50 +475,41 @@ const AdminDoctors = () => {
                     <TableHead>Name</TableHead>
                     <TableHead>Specialty</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Joined</TableHead>
-                    <TableHead>Patients</TableHead>
+                    <TableHead>Location</TableHead>
+                    <TableHead>Price</TableHead>
                     <TableHead>Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  <TableRow>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center">
-                        <Avatar className="h-8 w-8 mr-2">
-                          <AvatarFallback>EM</AvatarFallback>
-                        </Avatar>
-                        Dr. Emma Wilson
-                      </div>
-                    </TableCell>
-                    <TableCell>Cardiologist</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="bg-green-100 text-green-800">Active</Badge>
-                    </TableCell>
-                    <TableCell>Jan 15, 2023</TableCell>
-                    <TableCell>42</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm">View</Button>
-                    </TableCell>
-                  </TableRow>
-                  <TableRow>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center">
-                        <Avatar className="h-8 w-8 mr-2">
-                          <AvatarFallback>MC</AvatarFallback>
-                        </Avatar>
-                        Dr. Michael Chen
-                      </div>
-                    </TableCell>
-                    <TableCell>Neurologist</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="bg-green-100 text-green-800">Active</Badge>
-                    </TableCell>
-                    <TableCell>Mar 22, 2023</TableCell>
-                    <TableCell>28</TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm">View</Button>
-                    </TableCell>
-                  </TableRow>
+                  {filteredDoctors(approvedDoctors).length > 0 ? (
+                    filteredDoctors(approvedDoctors).map((doctor) => (
+                      <TableRow key={doctor.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center">
+                            <Avatar className="h-8 w-8 mr-2">
+                              <AvatarFallback>{doctor.name.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                            {doctor.name}
+                          </div>
+                        </TableCell>
+                        <TableCell>{doctor.specialty}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-green-100 text-green-800">Active</Badge>
+                        </TableCell>
+                        <TableCell>{doctor.location}</TableCell>
+                        <TableCell>${doctor.price}/hr</TableCell>
+                        <TableCell>
+                          <Button variant="ghost" size="sm">View</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
+                        No approved doctors found
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -490,6 +521,22 @@ const AdminDoctors = () => {
 };
 
 const AdminPatients = () => {
+  const [patients, setPatients] = useState<Patient[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  useEffect(() => {
+    const allPatients = db.patients.getAll();
+    setPatients(allPatients);
+  }, []);
+  
+  const filteredPatients = () => {
+    if (!searchTerm) return patients;
+    return patients.filter(patient => 
+      patient.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      patient.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -501,7 +548,12 @@ const AdminPatients = () => {
         <h1 className="text-3xl font-semibold">Manage Patients</h1>
         <div className="relative w-64">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search patients..." className="pl-9" />
+          <Input 
+            placeholder="Search patients..." 
+            className="pl-9" 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
         </div>
       </div>
       
@@ -519,82 +571,48 @@ const AdminPatients = () => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableRow>
-                <TableCell className="font-medium">
-                  <div className="flex items-center">
-                    <Avatar className="h-8 w-8 mr-2">
-                      <AvatarFallback>JD</AvatarFallback>
-                    </Avatar>
-                    John Doe
-                  </div>
-                </TableCell>
-                <TableCell>john@example.com</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="bg-green-100 text-green-800">Active</Badge>
-                </TableCell>
-                <TableCell>Feb 12, 2023</TableCell>
-                <TableCell>8</TableCell>
-                <TableCell>
-                  <Button variant="ghost" size="sm">View</Button>
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">
-                  <div className="flex items-center">
-                    <Avatar className="h-8 w-8 mr-2">
-                      <AvatarFallback>AS</AvatarFallback>
-                    </Avatar>
-                    Alice Smith
-                  </div>
-                </TableCell>
-                <TableCell>alice@example.com</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="bg-green-100 text-green-800">Active</Badge>
-                </TableCell>
-                <TableCell>Jan 5, 2023</TableCell>
-                <TableCell>12</TableCell>
-                <TableCell>
-                  <Button variant="ghost" size="sm">View</Button>
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">
-                  <div className="flex items-center">
-                    <Avatar className="h-8 w-8 mr-2">
-                      <AvatarFallback>BJ</AvatarFallback>
-                    </Avatar>
-                    Bob Johnson
-                  </div>
-                </TableCell>
-                <TableCell>bob@example.com</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="bg-green-100 text-green-800">Active</Badge>
-                </TableCell>
-                <TableCell>Mar 18, 2023</TableCell>
-                <TableCell>5</TableCell>
-                <TableCell>
-                  <Button variant="ghost" size="sm">View</Button>
-                </TableCell>
-              </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">
-                  <div className="flex items-center">
-                    <Avatar className="h-8 w-8 mr-2">
-                      <AvatarFallback>ED</AvatarFallback>
-                    </Avatar>
-                    Emma Davis
-                  </div>
-                </TableCell>
-                <TableCell>emma@example.com</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="bg-yellow-100 text-yellow-800">Inactive</Badge>
-                </TableCell>
-                <TableCell>Apr 22, 2023</TableCell>
-                <TableCell>2</TableCell>
-                <TableCell>
-                  <Button variant="ghost" size="sm">View</Button>
-                </TableCell>
-              </TableRow>
+              {filteredPatients().length > 0 ? (
+                filteredPatients().map((patient) => {
+                  const patientConsultations = db.consultations.getByPatientId(patient.id);
+                  
+                  return (
+                    <TableRow key={patient.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center">
+                          <Avatar className="h-8 w-8 mr-2">
+                            <AvatarFallback>{patient.name.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          {patient.name}
+                        </div>
+                      </TableCell>
+                      <TableCell>{patient.email}</TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant="outline" 
+                          className={
+                            patient.status === 'active'
+                              ? "bg-green-100 text-green-800"
+                              : "bg-yellow-100 text-yellow-800"
+                          }
+                        >
+                          {patient.status.charAt(0).toUpperCase() + patient.status.slice(1)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{new Date(patient.joinedDate).toLocaleDateString()}</TableCell>
+                      <TableCell>{patientConsultations.length}</TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="sm">View</Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
+                    No patients found
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -621,6 +639,7 @@ const AdminDashboard = () => {
           <Route path="/" element={<AdminHome />} />
           <Route path="/doctors" element={<AdminDoctors />} />
           <Route path="/patients" element={<AdminPatients />} />
+          <Route path="/settings" element={<AdminSettings />} />
         </Routes>
       </main>
     </div>
