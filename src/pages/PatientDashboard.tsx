@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -11,8 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import BookDoctorPage from "./BookDoctorPage";
 
-// Sample data
 const doctors = [
   {
     id: "1",
@@ -80,6 +79,8 @@ const consultations = [
 ];
 
 const PatientHome = () => {
+  const navigate = useNavigate();
+  
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -156,7 +157,7 @@ const PatientHome = () => {
             <Button variant="outline" size="icon" className="mr-2">
               <Filter className="h-4 w-4" />
             </Button>
-            <Button>
+            <Button onClick={() => navigate("/patient-dashboard/book")}>
               <Plus className="h-4 w-4 mr-2" />
               Request Consultation
             </Button>
@@ -175,6 +176,7 @@ const PatientHome = () => {
               location={doctor.location}
               price={doctor.price}
               availability={doctor.availability}
+              onClick={() => navigate(`/patient-dashboard/book/${doctor.id}`)}
             />
           ))}
         </div>
@@ -420,6 +422,8 @@ const PatientDashboard = () => {
           <Route path="/consultations" element={<PatientConsultations />} />
           <Route path="/profile" element={<PatientProfile />} />
           <Route path="/messages" element={<PatientMessages />} />
+          <Route path="/book" element={<BookDoctorPage />} />
+          <Route path="/book/:doctorId" element={<BookDoctorPage />} />
         </Routes>
       </main>
     </div>

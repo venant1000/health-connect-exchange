@@ -104,6 +104,7 @@ const DoctorCard = ({
               variant="default" 
               size="sm"
               className="text-xs"
+              onClick={onClick}
             >
               Book Consultation
             </Button>
