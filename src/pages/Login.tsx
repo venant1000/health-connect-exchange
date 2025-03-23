@@ -83,6 +83,7 @@ const Login = () => {
           name: signupName,
           email: signupEmail,
           phone: signupPhone,
+          location: "", // Added the missing location field
           status: "active",
           joinedDate: new Date().toISOString().split('T')[0]
         });

@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -19,9 +18,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { db, Consultation, Patient, Transaction, HealthMetric, UserProfileData } from "@/services/database";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import BookDoctorPage from "./BookDoctorPage";
 
-// Sample patient data
 const patientData: Patient = {
   id: "1",
   name: "John Doe",
@@ -32,7 +31,6 @@ const patientData: Patient = {
   joinedDate: "2023-01-15"
 };
 
-// Sample transactions data
 const transactionsData: Transaction[] = [
   {
     id: "1",
@@ -64,7 +62,6 @@ const transactionsData: Transaction[] = [
   }
 ];
 
-// Sample health metrics data
 const healthMetricsData = {
   lastCheckup: "Sep 23, 2023",
   nextCheckup: "Dec 23, 2023",
@@ -109,13 +106,10 @@ const PatientHome = () => {
   const [consultations, setConsultations] = useState<Consultation[]>([]);
   const [doctors, setDoctors] = useState<any[]>([]);
   
-  // Fetch data
   useEffect(() => {
-    // Fetch consultations
     const patientConsultations = db.consultations.getByPatientId("1");
     setConsultations(patientConsultations);
     
-    // Fetch doctors
     const allDoctors = db.doctors.getAll();
     setDoctors(allDoctors);
   }, []);
@@ -125,7 +119,6 @@ const PatientHome = () => {
       balance: prev.balance + amount 
     }));
     
-    // In a real app, you would save this to the database
     toast({
       title: "Funds added successfully",
       description: `$${amount.toFixed(2)} has been added to your wallet.`,
@@ -142,7 +135,6 @@ const PatientHome = () => {
       <h1 className="text-3xl font-semibold mb-6">Welcome, {patientData.name}</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        {/* Next appointment card */}
         <Card className="bg-gradient-to-br from-health-600 to-health-700 text-white">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg">Next Appointment</CardTitle>
@@ -190,18 +182,15 @@ const PatientHome = () => {
           </CardContent>
         </Card>
         
-        {/* Wallet balance card */}
         <WalletCard 
           balance={wallet.balance} 
           onAddFunds={handleAddFunds}
           onViewHistory={() => setShowWalletHistory(true)}
         />
         
-        {/* Health status card */}
         <HealthStatusCard healthData={healthMetricsData} />
       </div>
       
-      {/* Wallet history dialog */}
       <WalletHistory 
         transactions={transactionsData}
         open={showWalletHistory}
@@ -350,24 +339,20 @@ const PatientConsultations = () => {
   const [showVideo, setShowVideo] = useState(false);
   const [showChat, setShowChat] = useState(false);
 
-  // Get query parameters
   const queryParams = new URLSearchParams(location.search);
   const consultationId = queryParams.get('id');
   const joinConsultation = queryParams.get('join') === 'true';
 
-  // Fetch consultations
   useEffect(() => {
     const patientConsultations = db.consultations.getByPatientId("1");
     setConsultations(patientConsultations);
 
-    // Handle consultation selection from URL
     if (consultationId) {
       const consultation = patientConsultations.find(c => c.id === consultationId);
       if (consultation) {
         setSelectedConsultation(consultation);
         setShowConsultationDetails(true);
         
-        // If join parameter is present, join the consultation
         if (joinConsultation && consultation.status === 'upcoming') {
           if (consultation.type === 'video' || consultation.type === 'audio') {
             setShowVideo(true);
@@ -402,7 +387,6 @@ const PatientConsultations = () => {
     setShowConsultationDetails(false);
     setSelectedConsultation(null);
     
-    // Remove query parameters
     navigate('/patient-dashboard/consultations');
   };
 
@@ -556,7 +540,6 @@ const PatientConsultations = () => {
         </TabsContent>
       </Tabs>
       
-      {/* Consultation details modal */}
       <ConsultationDetails
         consultation={selectedConsultation}
         isOpen={showConsultationDetails}
@@ -565,7 +548,6 @@ const PatientConsultations = () => {
         onMessage={() => setShowChat(true)}
       />
       
-      {/* Video consultation modal */}
       {showVideo && selectedConsultation && (
         <div className="fixed inset-0 z-50 bg-background flex flex-col">
           <div className="flex items-center justify-between p-4 border-b">
@@ -590,7 +572,6 @@ const PatientConsultations = () => {
         </div>
       )}
       
-      {/* Chat interface modal */}
       {showChat && selectedConsultation && (
         <div className="fixed inset-0 z-50 bg-background flex flex-col">
           <div className="flex items-center justify-between p-4 border-b">
@@ -623,7 +604,6 @@ const PatientProfile = () => {
   const [patient, setPatient] = useState<Patient>(patientData);
   
   const handleEdit = (updatedData: UserProfileData) => {
-    // In a real app, you would call an API to update the user profile
     setPatient(prev => ({
       ...prev,
       name: updatedData.name,
@@ -666,7 +646,6 @@ const PatientMessages = () => {
   const [showChat, setShowChat] = useState(false);
   
   useEffect(() => {
-    // Fetch consultations for the current patient
     const patientConsultations = db.consultations.getByPatientId("1");
     setConsultations(patientConsultations);
   }, []);
@@ -723,7 +702,6 @@ const PatientMessages = () => {
         </CardContent>
       </Card>
       
-      {/* Chat interface modal */}
       {showChat && selectedConsultation && (
         <div className="fixed inset-0 z-50 bg-background flex flex-col">
           <div className="flex items-center justify-between p-4 border-b">
@@ -757,7 +735,6 @@ const PatientDashboard = () => {
 
   useEffect(() => {
     if (location.pathname === '/patient-dashboard') {
-      // If we're at the root of the dashboard, don't redirect
     }
   }, [location.pathname, navigate]);
 
