@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -31,12 +30,10 @@ const DoctorDashboard = () => {
   const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null);
   const [activeUsers, setActiveUsers] = useState(0);
 
-  // Get current doctor from auth
   const currentUser = authService.getCurrentUser();
   const doctorId = currentUser?.doctorId || "";
   const doctor = db.doctors.getById(doctorId);
 
-  // Check if user is authenticated and is a doctor
   useEffect(() => {
     if (!authService.isAuthenticated()) {
       navigate("/login");
@@ -48,21 +45,17 @@ const DoctorDashboard = () => {
       return;
     }
 
-    // Load consultations for this doctor
     loadConsultations();
     
-    // Simulating active users
     setActiveUsers(Math.floor(Math.random() * 10) + 5);
   }, [navigate]);
 
-  // Load consultations from database
   const loadConsultations = () => {
     if (!doctorId) return;
     
     const allConsultations = db.consultations.getByDoctorId(doctorId);
     setConsultations(allConsultations);
     
-    // Calculate counts
     const counts = {
       upcoming: allConsultations.filter(c => c.status === 'upcoming').length,
       pending: allConsultations.filter(c => c.status === 'pending').length,
@@ -71,7 +64,6 @@ const DoctorDashboard = () => {
     setAppointmentCount(counts);
   };
 
-  // Handle various consultation actions
   const handleStartConsultation = (consultation: Consultation) => {
     setSelectedConsultation(consultation);
     setIsVideoModalOpen(true);
@@ -116,7 +108,6 @@ const DoctorDashboard = () => {
   const handleSavePrescription = (prescriptionData: any) => {
     if (!selectedConsultation) return;
     
-    // Save prescription to database
     db.prescriptions.create({
       consultationId: selectedConsultation.id,
       patientId: selectedConsultation.patientId,
@@ -129,7 +120,6 @@ const DoctorDashboard = () => {
       signature: prescriptionData.signature || "Dr. Signature"
     });
     
-    // Update consultation to include prescription reference
     toast({
       title: "Prescription Saved",
       description: "The prescription has been created successfully.",
@@ -139,7 +129,6 @@ const DoctorDashboard = () => {
     loadConsultations();
   };
 
-  // Get filtered consultations based on current tab
   const getFilteredConsultations = () => {
     if (tab === 'appointments') {
       return consultations.filter(c => c.status === 'upcoming');
@@ -151,13 +140,11 @@ const DoctorDashboard = () => {
     return consultations;
   };
 
-  // Date formatting helper
   const formatDate = (dateString: string) => {
     const options: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
 
-  // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: { 
@@ -197,7 +184,6 @@ const DoctorDashboard = () => {
           </div>
         </div>
 
-        {/* Doctor Profile and Stats */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader className="pb-3">
@@ -302,7 +288,6 @@ const DoctorDashboard = () => {
           </Card>
         </div>
 
-        {/* Consultation Tabs */}
         <Tabs value={tab} onValueChange={setTab} className="w-full">
           <TabsList className="grid grid-cols-3 md:w-[400px] mb-4">
             <TabsTrigger value="appointments">Upcoming</TabsTrigger>
@@ -452,44 +437,40 @@ const DoctorDashboard = () => {
           </TabsContent>
         </Tabs>
 
-        {/* Video Consultation Modal */}
         <Dialog open={isVideoModalOpen} onOpenChange={setIsVideoModalOpen}>
           <DialogContent className="max-w-5xl p-0 h-[80vh]">
             {selectedConsultation && (
               <VideoConsultation
                 consultationId={selectedConsultation.id}
-                roomId={selectedConsultation.roomId || "default-room"}
-                patientName={selectedConsultation.patientName}
+                userId={doctorId}
+                userType="doctor"
                 onClose={() => setIsVideoModalOpen(false)}
               />
             )}
           </DialogContent>
         </Dialog>
 
-        {/* Chat Modal */}
         <Dialog open={isChatModalOpen} onOpenChange={setIsChatModalOpen}>
           <DialogContent className="max-w-2xl p-0 h-[80vh]">
             {selectedConsultation && (
               <ChatInterface
                 consultationId={selectedConsultation.id}
-                currentUserId={doctorId}
+                userId={doctorId}
                 userType="doctor"
-                recipientName={selectedConsultation.patientName}
                 onClose={() => setIsChatModalOpen(false)}
               />
             )}
           </DialogContent>
         </Dialog>
 
-        {/* Prescription Modal */}
         <Dialog open={isPrescriptionModalOpen} onOpenChange={setIsPrescriptionModalOpen}>
           <DialogContent className="max-w-3xl">
             {selectedConsultation && (
               <PrescriptionForm
-                consultation={selectedConsultation}
-                doctorName={doctor.name}
-                doctorSpecialty={doctor.specialty}
-                onSave={handleSavePrescription}
+                patientName={selectedConsultation.patientName}
+                patientId={selectedConsultation.patientId}
+                consultationId={selectedConsultation.id}
+                onComplete={handleSavePrescription}
                 onCancel={() => setIsPrescriptionModalOpen(false)}
               />
             )}
