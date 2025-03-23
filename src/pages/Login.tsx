@@ -1,4 +1,3 @@
-
 import { useState, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -113,8 +112,11 @@ const Login = () => {
           rating: 0,
           experience: 0,
           price: 0,
-          status: "pending",
-          education: []
+          location: "", // Added missing required field
+          availability: "", // Added missing required field
+          bio: "", // Added missing required field
+          education: [], // Fixed undefined[] to empty array
+          status: "pending"
         });
         
         // Create user account linked to doctor

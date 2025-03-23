@@ -1,613 +1,501 @@
 
-import { useEffect, useState } from "react";
-import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Calendar, ArrowRight, ChevronRight, Clock, DollarSign, Users, FilePlus } from "lucide-react";
-import Navbar from "@/components/Navbar";
-import ConsultationCard from "@/components/ConsultationCard";
-import UserProfile from "@/components/UserProfile";
-import PrescriptionForm from "@/components/PrescriptionForm";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Progress } from "@/components/ui/progress";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Calendar } from "@/components/ui/calendar";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { FileText, Calendar as CalendarIcon, Video, MessageSquare, Clock, User, CheckCircle, XCircle, Settings, Edit, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { db, initializeDatabase, Consultation } from "@/services/database";
-import DoctorSettings from "./DoctorSettings";
-
-// Initialize database with sample data if empty
-initializeDatabase();
-
-// Doctor ID - in a real app, get this from authentication/context
-const DOCTOR_ID = "1";
-
-const DoctorHome = () => {
-  const { toast } = useToast();
-  const [consultations, setConsultations] = useState<Consultation[]>([]);
-  const [upcomingConsultations, setUpcomingConsultations] = useState<Consultation[]>([]);
-  const [pendingConsultations, setPendingConsultations] = useState<Consultation[]>([]);
-  const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null);
-  const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
-  
-  // Get doctor info
-  const doctor = db.doctors.getById(DOCTOR_ID);
-
-  useEffect(() => {
-    // Load consultations from database
-    const allConsultations = db.consultations.getDoctorConsultations(DOCTOR_ID);
-    const upcoming = db.consultations.getDoctorConsultations(DOCTOR_ID, 'upcoming');
-    const pending = db.consultations.getDoctorConsultations(DOCTOR_ID, 'pending');
-    
-    setConsultations(allConsultations);
-    setUpcomingConsultations(upcoming);
-    setPendingConsultations(pending);
-  }, []);
-
-  const handleAcceptConsultation = (consultationId: string) => {
-    // Update status in database
-    db.consultations.update(consultationId, { status: 'upcoming' });
-    
-    // Refresh data
-    const allConsultations = db.consultations.getDoctorConsultations(DOCTOR_ID);
-    const upcoming = db.consultations.getDoctorConsultations(DOCTOR_ID, 'upcoming');
-    const pending = db.consultations.getDoctorConsultations(DOCTOR_ID, 'pending');
-    
-    setConsultations(allConsultations);
-    setUpcomingConsultations(upcoming);
-    setPendingConsultations(pending);
-    
-    toast({
-      title: "Consultation accepted",
-      description: "The consultation request has been accepted.",
-    });
-  };
-
-  const handleCompleteConsultation = (consultationId: string) => {
-    // Get consultation details
-    const consultation = db.consultations.getById(consultationId);
-    if (!consultation) return;
-    
-    setSelectedConsultation(consultation);
-    setShowPrescriptionForm(true);
-  };
-
-  const handlePrescriptionComplete = (prescriptionData: any) => {
-    if (!selectedConsultation) return;
-    
-    // Update consultation status
-    db.consultations.update(selectedConsultation.id, { 
-      status: 'completed',
-      prescription: prescriptionData
-    });
-    
-    // Refresh data
-    const allConsultations = db.consultations.getDoctorConsultations(DOCTOR_ID);
-    const upcoming = db.consultations.getDoctorConsultations(DOCTOR_ID, 'upcoming');
-    const pending = db.consultations.getDoctorConsultations(DOCTOR_ID, 'pending');
-    
-    setConsultations(allConsultations);
-    setUpcomingConsultations(upcoming);
-    setPendingConsultations(pending);
-    
-    setShowPrescriptionForm(false);
-    setSelectedConsultation(null);
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="container py-6 max-w-7xl"
-    >
-      {showPrescriptionForm && selectedConsultation ? (
-        <div>
-          <Button 
-            variant="outline" 
-            onClick={() => setShowPrescriptionForm(false)}
-            className="mb-4"
-          >
-            ← Back to Dashboard
-          </Button>
-          <PrescriptionForm
-            patientName={selectedConsultation.patientName}
-            patientId={selectedConsultation.patientId}
-            consultationId={selectedConsultation.id}
-            onComplete={handlePrescriptionComplete}
-            onCancel={() => setShowPrescriptionForm(false)}
-          />
-        </div>
-      ) : (
-        <>
-          <h1 className="text-3xl font-semibold mb-6">Welcome, {doctor?.name || 'Doctor'}</h1>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Card className="bg-gradient-to-br from-health-600 to-health-700 text-white">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Next Appointment</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {upcomingConsultations.length > 0 ? (
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium text-lg">{upcomingConsultations[0].patientName}</p>
-                      <p className="text-sm opacity-90">Patient</p>
-                      <div className="mt-2 opacity-90 flex items-center text-sm">
-                        <div className="flex items-center">
-                          {upcomingConsultations[0].date}, {upcomingConsultations[0].time}
-                        </div>
-                      </div>
-                    </div>
-                    <Button 
-                      variant="ghost" 
-                      className="text-white h-8 px-2" 
-                      size="sm"
-                      onClick={() => handleCompleteConsultation(upcomingConsultations[0].id)}
-                    >
-                      Start <ArrowRight className="h-4 w-4 ml-1" />
-                    </Button>
-                  </div>
-                ) : (
-                  <p className="opacity-80">No upcoming appointments</p>
-                )}
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Today's Schedule</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {upcomingConsultations.slice(0, 3).map((consult, index) => (
-                    <div key={consult.id} className="flex justify-between">
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 bg-health-500 rounded-full mr-2"></div>
-                        <span>{consult.time}</span>
-                      </div>
-                      <span className="text-sm font-medium">{consult.patientName}</span>
-                    </div>
-                  ))}
-                  {upcomingConsultations.length === 0 && (
-                    <p className="text-muted-foreground text-sm">No consultations scheduled for today</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Earnings</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-semibold">${consultations.reduce((sum, consult) => sum + consult.price, 0).toFixed(2)}</p>
-                <p className="text-sm text-muted-foreground mb-2">This month</p>
-                <Button variant="outline" size="sm">View Details</Button>
-              </CardContent>
-            </Card>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Consultations</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Calendar className="h-8 w-8 text-health-500 mr-3" />
-                    <div>
-                      <p className="text-2xl font-semibold">{consultations.length}</p>
-                      <p className="text-sm text-muted-foreground">This month</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-green-600">+{Math.floor(consultations.length * 0.1)}%</p>
-                    <p className="text-xs text-muted-foreground">vs last month</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Revenue</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <DollarSign className="h-8 w-8 text-health-500 mr-3" />
-                    <div>
-                      <p className="text-2xl font-semibold">${consultations.reduce((sum, consult) => sum + consult.price, 0).toFixed(2)}</p>
-                      <p className="text-sm text-muted-foreground">This month</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-green-600">+8%</p>
-                    <p className="text-xs text-muted-foreground">vs last month</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-lg">Patients</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center">
-                    <Users className="h-8 w-8 text-health-500 mr-3" />
-                    <div>
-                      <p className="text-2xl font-semibold">{new Set(consultations.map(c => c.patientId)).size}</p>
-                      <p className="text-sm text-muted-foreground">Total patients</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-green-600">+5</p>
-                    <p className="text-xs text-muted-foreground">vs last month</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-          
-          {pendingConsultations.length > 0 && (
-            <div className="mb-8">
-              <h2 className="text-2xl font-semibold mb-4">Appointment Requests</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {pendingConsultations.map((consult) => (
-                  <ConsultationCard
-                    key={consult.id}
-                    id={consult.id}
-                    doctorName={consult.patientName}
-                    doctorSpecialty="Patient"
-                    status={consult.status}
-                    date={consult.date}
-                    time={consult.time}
-                    type={consult.type}
-                    price={consult.price}
-                    onActionClick={() => handleAcceptConsultation(consult.id)}
-                    actionLabel="Accept Request"
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-          
-          {upcomingConsultations.length > 0 && (
-            <div>
-              <h2 className="text-2xl font-semibold mb-4">Upcoming Consultations</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {upcomingConsultations.map((consult) => (
-                  <ConsultationCard
-                    key={consult.id}
-                    id={consult.id}
-                    doctorName={consult.patientName}
-                    doctorSpecialty="Patient"
-                    status={consult.status}
-                    date={consult.date}
-                    time={consult.time}
-                    type={consult.type}
-                    price={consult.price}
-                    onActionClick={() => handleCompleteConsultation(consult.id)}
-                    actionLabel="Write Prescription"
-                    actionIcon={<FilePlus className="h-4 w-4 mr-2" />}
-                  />
-                ))}
-              </div>
-              <div className="mt-4 text-center">
-                <Button variant="outline" className="mt-2">
-                  View All Appointments
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </>
-      )}
-    </motion.div>
-  );
-};
-
-const DoctorAppointments = () => {
-  const { toast } = useToast();
-  const [consultations, setConsultations] = useState<Consultation[]>([]);
-  const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null);
-  const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
-
-  useEffect(() => {
-    // Load consultations from database
-    const allConsultations = db.consultations.getDoctorConsultations(DOCTOR_ID);
-    setConsultations(allConsultations);
-  }, []);
-
-  const handleAcceptConsultation = (consultationId: string) => {
-    // Update status in database
-    db.consultations.update(consultationId, { status: 'upcoming' });
-    
-    // Refresh data
-    const allConsultations = db.consultations.getDoctorConsultations(DOCTOR_ID);
-    setConsultations(allConsultations);
-    
-    toast({
-      title: "Consultation accepted",
-      description: "The consultation request has been accepted.",
-    });
-  };
-
-  const handleCompleteConsultation = (consultationId: string) => {
-    // Get consultation details
-    const consultation = db.consultations.getById(consultationId);
-    if (!consultation) return;
-    
-    setSelectedConsultation(consultation);
-    setShowPrescriptionForm(true);
-  };
-
-  const handlePrescriptionComplete = (prescriptionData: any) => {
-    if (!selectedConsultation) return;
-    
-    // Update consultation status
-    db.consultations.update(selectedConsultation.id, { 
-      status: 'completed',
-      prescription: prescriptionData
-    });
-    
-    // Refresh data
-    const allConsultations = db.consultations.getDoctorConsultations(DOCTOR_ID);
-    setConsultations(allConsultations);
-    
-    setShowPrescriptionForm(false);
-    setSelectedConsultation(null);
-    
-    toast({
-      title: "Consultation completed",
-      description: "The prescription has been issued to the patient.",
-    });
-  };
-
-  const filteredConsultations = (status?: Consultation['status']) => {
-    if (!status) return consultations;
-    return consultations.filter(c => c.status === status);
-  };
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="container py-6 max-w-7xl"
-    >
-      {showPrescriptionForm && selectedConsultation ? (
-        <div>
-          <Button 
-            variant="outline" 
-            onClick={() => setShowPrescriptionForm(false)}
-            className="mb-4"
-          >
-            ← Back to Appointments
-          </Button>
-          <PrescriptionForm
-            patientName={selectedConsultation.patientName}
-            patientId={selectedConsultation.patientId}
-            consultationId={selectedConsultation.id}
-            onComplete={handlePrescriptionComplete}
-            onCancel={() => setShowPrescriptionForm(false)}
-          />
-        </div>
-      ) : (
-        <>
-          <h1 className="text-3xl font-semibold mb-6">My Appointments</h1>
-          
-          <Tabs defaultValue="all">
-            <TabsList className="mb-4">
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-              <TabsTrigger value="pending">Pending</TabsTrigger>
-              <TabsTrigger value="completed">Completed</TabsTrigger>
-            </TabsList>
-            <TabsContent value="all">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {consultations.length > 0 ? (
-                  consultations.map((consult) => (
-                    <ConsultationCard
-                      key={consult.id}
-                      id={consult.id}
-                      doctorName={consult.patientName}
-                      doctorSpecialty="Patient"
-                      status={consult.status}
-                      date={consult.date}
-                      time={consult.time}
-                      type={consult.type}
-                      price={consult.price}
-                      onActionClick={
-                        consult.status === 'pending' 
-                          ? () => handleAcceptConsultation(consult.id)
-                          : consult.status === 'upcoming'
-                          ? () => handleCompleteConsultation(consult.id)
-                          : undefined
-                      }
-                      actionLabel={
-                        consult.status === 'pending' 
-                          ? "Accept Request" 
-                          : consult.status === 'upcoming'
-                          ? "Write Prescription"
-                          : undefined
-                      }
-                      actionIcon={
-                        consult.status === 'upcoming' 
-                          ? <FilePlus className="h-4 w-4 mr-2" />
-                          : undefined
-                      }
-                    />
-                  ))
-                ) : (
-                  <div className="col-span-3 text-center py-8">
-                    <p className="text-muted-foreground">No consultations found</p>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-            <TabsContent value="upcoming">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredConsultations('upcoming').length > 0 ? (
-                  filteredConsultations('upcoming').map((consult) => (
-                    <ConsultationCard
-                      key={consult.id}
-                      id={consult.id}
-                      doctorName={consult.patientName}
-                      doctorSpecialty="Patient"
-                      status={consult.status}
-                      date={consult.date}
-                      time={consult.time}
-                      type={consult.type}
-                      price={consult.price}
-                      onActionClick={() => handleCompleteConsultation(consult.id)}
-                      actionLabel="Write Prescription"
-                      actionIcon={<FilePlus className="h-4 w-4 mr-2" />}
-                    />
-                  ))
-                ) : (
-                  <div className="col-span-3 text-center py-8">
-                    <p className="text-muted-foreground">No upcoming consultations</p>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-            <TabsContent value="pending">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredConsultations('pending').length > 0 ? (
-                  filteredConsultations('pending').map((consult) => (
-                    <ConsultationCard
-                      key={consult.id}
-                      id={consult.id}
-                      doctorName={consult.patientName}
-                      doctorSpecialty="Patient"
-                      status={consult.status}
-                      date={consult.date}
-                      time={consult.time}
-                      type={consult.type}
-                      price={consult.price}
-                      onActionClick={() => handleAcceptConsultation(consult.id)}
-                      actionLabel="Accept Request"
-                    />
-                  ))
-                ) : (
-                  <div className="col-span-3 text-center py-8">
-                    <p className="text-muted-foreground">No pending requests</p>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-            <TabsContent value="completed">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredConsultations('completed').length > 0 ? (
-                  filteredConsultations('completed').map((consult) => (
-                    <ConsultationCard
-                      key={consult.id}
-                      id={consult.id}
-                      doctorName={consult.patientName}
-                      doctorSpecialty="Patient"
-                      status={consult.status}
-                      date={consult.date}
-                      time={consult.time}
-                      type={consult.type}
-                      price={consult.price}
-                    />
-                  ))
-                ) : (
-                  <div className="col-span-3 text-center py-8">
-                    <p className="text-muted-foreground">No completed consultations</p>
-                  </div>
-                )}
-              </div>
-            </TabsContent>
-          </Tabs>
-        </>
-      )}
-    </motion.div>
-  );
-};
-
-const DoctorProfile = () => {
-  const doctor = db.doctors.getById(DOCTOR_ID);
-  
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="container py-6 max-w-7xl"
-    >
-      <h1 className="text-3xl font-semibold mb-6">My Profile</h1>
-      
-      {doctor && (
-        <UserProfile
-          userType="doctor"
-          name={doctor.name}
-          specialty={doctor.specialty}
-          email={doctor.email}
-          phone={doctor.phone}
-          location={doctor.location}
-          experience={doctor.experience}
-          bio={doctor.bio}
-          education={doctor.education}
-          availability={doctor.availability}
-          onEdit={() => console.log("Edit profile")}
-        />
-      )}
-    </motion.div>
-  );
-};
-
-const DoctorMessages = () => {
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="container py-6 max-w-7xl"
-    >
-      <h1 className="text-3xl font-semibold mb-6">Messages</h1>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>Your Messages</CardTitle>
-          <CardDescription>
-            Stay in touch with your patients
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-center py-12 text-muted-foreground">Message feature will be implemented in the next version.</p>
-        </CardContent>
-      </Card>
-    </motion.div>
-  );
-};
+import ConsultationCard from "@/components/ConsultationCard";
+import VideoConsultation from "@/components/VideoConsultation";
+import ChatInterface from "@/components/ChatInterface";
+import PrescriptionForm from "@/components/PrescriptionForm";
+import { db, Consultation, Doctor, Patient } from "@/services/database";
+import { authService } from "@/services/auth";
 
 const DoctorDashboard = () => {
-  const location = useLocation();
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [tab, setTab] = useState("appointments");
+  const [date, setDate] = useState<Date | undefined>(new Date());
+  const [appointmentCount, setAppointmentCount] = useState({ upcoming: 0, pending: 0, completed: 0 });
+  const [consultations, setConsultations] = useState<Consultation[]>([]);
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const [isChatModalOpen, setIsChatModalOpen] = useState(false);
+  const [isPrescriptionModalOpen, setIsPrescriptionModalOpen] = useState(false);
+  const [selectedConsultation, setSelectedConsultation] = useState<Consultation | null>(null);
+  const [activeUsers, setActiveUsers] = useState(0);
 
+  // Get current doctor from auth
+  const currentUser = authService.getCurrentUser();
+  const doctorId = currentUser?.doctorId || "";
+  const doctor = db.doctors.getById(doctorId);
+
+  // Check if user is authenticated and is a doctor
   useEffect(() => {
-    if (location.pathname === '/doctor-dashboard') {
-      // If we're at the root of the dashboard, don't redirect
+    if (!authService.isAuthenticated()) {
+      navigate("/login");
+      return;
     }
-  }, [location.pathname, navigate]);
+
+    if (authService.getUserRole() !== 'doctor') {
+      navigate("/");
+      return;
+    }
+
+    // Load consultations for this doctor
+    loadConsultations();
+    
+    // Simulating active users
+    setActiveUsers(Math.floor(Math.random() * 10) + 5);
+  }, [navigate]);
+
+  // Load consultations from database
+  const loadConsultations = () => {
+    if (!doctorId) return;
+    
+    const allConsultations = db.consultations.getByDoctorId(doctorId);
+    setConsultations(allConsultations);
+    
+    // Calculate counts
+    const counts = {
+      upcoming: allConsultations.filter(c => c.status === 'upcoming').length,
+      pending: allConsultations.filter(c => c.status === 'pending').length,
+      completed: allConsultations.filter(c => c.status === 'completed').length
+    };
+    setAppointmentCount(counts);
+  };
+
+  // Handle various consultation actions
+  const handleStartConsultation = (consultation: Consultation) => {
+    setSelectedConsultation(consultation);
+    setIsVideoModalOpen(true);
+  };
+
+  const handleChat = (consultation: Consultation) => {
+    setSelectedConsultation(consultation);
+    setIsChatModalOpen(true);
+  };
+
+  const handleWritePrescription = (consultation: Consultation) => {
+    setSelectedConsultation(consultation);
+    setIsPrescriptionModalOpen(true);
+  };
+
+  const handleAcceptConsultation = (consultation: Consultation) => {
+    db.consultations.update(consultation.id, {
+      status: 'upcoming'
+    });
+    
+    toast({
+      title: "Consultation Accepted",
+      description: `Consultation with ${consultation.patientName} has been scheduled.`,
+    });
+    
+    loadConsultations();
+  };
+
+  const handleCompleteConsultation = (consultation: Consultation) => {
+    db.consultations.update(consultation.id, {
+      status: 'completed'
+    });
+    
+    toast({
+      title: "Consultation Completed",
+      description: `Consultation with ${consultation.patientName} has been marked as completed.`,
+    });
+    
+    loadConsultations();
+  };
+
+  const handleSavePrescription = (prescriptionData: any) => {
+    if (!selectedConsultation) return;
+    
+    // Save prescription to database
+    db.prescriptions.create({
+      consultationId: selectedConsultation.id,
+      patientId: selectedConsultation.patientId,
+      patientName: selectedConsultation.patientName,
+      diagnosis: prescriptionData.diagnosis,
+      medications: JSON.stringify(prescriptionData.medications),
+      notes: prescriptionData.notes,
+      followUpDate: prescriptionData.followUpDate,
+      issuedDate: new Date().toISOString().split('T')[0],
+      signature: prescriptionData.signature || "Dr. Signature"
+    });
+    
+    // Update consultation to include prescription reference
+    toast({
+      title: "Prescription Saved",
+      description: "The prescription has been created successfully.",
+    });
+    
+    setIsPrescriptionModalOpen(false);
+    loadConsultations();
+  };
+
+  // Get filtered consultations based on current tab
+  const getFilteredConsultations = () => {
+    if (tab === 'appointments') {
+      return consultations.filter(c => c.status === 'upcoming');
+    } else if (tab === 'pending') {
+      return consultations.filter(c => c.status === 'pending');
+    } else if (tab === 'history') {
+      return consultations.filter(c => c.status === 'completed');
+    }
+    return consultations;
+  };
+
+  // Date formatting helper
+  const formatDate = (dateString: string) => {
+    const options: Intl.DateTimeFormatOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    return new Date(dateString).toLocaleDateString(undefined, options);
+  };
+
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { 
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: { y: 0, opacity: 1 }
+  };
+
+  if (!doctor) {
+    return <div className="container py-10">Loading doctor profile...</div>;
+  }
 
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar userType="doctor" />
-      <main>
-        <Routes>
-          <Route path="/" element={<DoctorHome />} />
-          <Route path="/appointments" element={<DoctorAppointments />} />
-          <Route path="/profile" element={<DoctorProfile />} />
-          <Route path="/messages" element={<DoctorMessages />} />
-          <Route path="/settings" element={<DoctorSettings />} />
-        </Routes>
-      </main>
+    <div className="container py-6 max-w-7xl">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+      >
+        <div className="flex flex-col lg:flex-row justify-between items-start gap-6 mb-8">
+          <div>
+            <h1 className="text-3xl font-bold">Doctor Dashboard</h1>
+            <p className="text-muted-foreground">Manage your appointments and patient consultations</p>
+          </div>
+          <div className="flex space-x-4">
+            <Button onClick={() => navigate("/doctor-settings")} variant="outline">
+              <Settings className="mr-2 h-4 w-4" />
+              Settings
+            </Button>
+          </div>
+        </div>
+
+        {/* Doctor Profile and Stats */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Doctor Profile</CardTitle>
+              <CardDescription>Your professional information</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col items-center text-center">
+              <Avatar className="h-24 w-24 mb-4">
+                <AvatarImage src={doctor.avatar || "/placeholder.svg"} />
+                <AvatarFallback>{doctor.name.substring(0, 2)}</AvatarFallback>
+              </Avatar>
+              <h3 className="text-xl font-semibold">{doctor.name}</h3>
+              <p className="text-muted-foreground mb-3">{doctor.specialty}</p>
+              <div className="flex items-center mb-3">
+                <Badge variant="secondary" className="mr-2">
+                  ⭐ {doctor.rating.toFixed(1)}
+                </Badge>
+                <Badge variant="outline">{doctor.experience} Years Exp.</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">{doctor.availability}</p>
+              <Button variant="outline" className="w-full" onClick={() => navigate("/doctor-settings")}>
+                <Edit className="mr-2 h-4 w-4" />
+                Edit Profile
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Appointment Stats</CardTitle>
+              <CardDescription>Overview of your consultations</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="flex flex-col items-center p-3 bg-primary/10 rounded-lg">
+                  <Clock className="h-6 w-6 text-primary mb-2" />
+                  <p className="text-2xl font-bold">{appointmentCount.upcoming}</p>
+                  <p className="text-sm text-muted-foreground">Upcoming</p>
+                </div>
+                <div className="flex flex-col items-center p-3 bg-yellow-500/10 rounded-lg">
+                  <User className="h-6 w-6 text-yellow-500 mb-2" />
+                  <p className="text-2xl font-bold">{appointmentCount.pending}</p>
+                  <p className="text-sm text-muted-foreground">Pending</p>
+                </div>
+                <div className="flex flex-col items-center p-3 bg-green-500/10 rounded-lg">
+                  <CheckCircle className="h-6 w-6 text-green-500 mb-2" />
+                  <p className="text-2xl font-bold">{appointmentCount.completed}</p>
+                  <p className="text-sm text-muted-foreground">Completed</p>
+                </div>
+              </div>
+              <div className="mt-6">
+                <div className="flex justify-between items-center mb-2">
+                  <p className="text-sm font-medium">Active Patients</p>
+                  <Badge variant="outline">{activeUsers} Online</Badge>
+                </div>
+                <div className="w-full bg-secondary h-2 rounded-full">
+                  <div 
+                    className="bg-primary h-2 rounded-full" 
+                    style={{ width: `${(activeUsers / 20) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Calendar</CardTitle>
+              <CardDescription>Your upcoming schedule</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Calendar
+                mode="single"
+                selected={date}
+                onSelect={setDate}
+                className="rounded-md border mx-auto"
+              />
+              {date && (
+                <div className="mt-4">
+                  <h4 className="font-medium mb-2">{formatDate(date.toISOString())}</h4>
+                  {consultations.filter(c => 
+                    c.date === date.toISOString().split('T')[0] && 
+                    c.status === 'upcoming'
+                  ).length > 0 ? (
+                    <ul className="space-y-2">
+                      {consultations.filter(c => 
+                        c.date === date.toISOString().split('T')[0] && 
+                        c.status === 'upcoming'
+                      ).map(consultation => (
+                        <li key={consultation.id} className="text-sm p-2 border rounded-md">
+                          <div className="font-medium">{consultation.patientName}</div>
+                          <div className="text-muted-foreground">{consultation.time}</div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-muted-foreground text-sm">No appointments scheduled</p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Consultation Tabs */}
+        <Tabs value={tab} onValueChange={setTab} className="w-full">
+          <TabsList className="grid grid-cols-3 md:w-[400px] mb-4">
+            <TabsTrigger value="appointments">Upcoming</TabsTrigger>
+            <TabsTrigger value="pending">Pending</TabsTrigger>
+            <TabsTrigger value="history">History</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="appointments" className="space-y-4">
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+            >
+              {getFilteredConsultations().length > 0 ? (
+                getFilteredConsultations().map(consultation => (
+                  <motion.div key={consultation.id} variants={itemVariants}>
+                    <ConsultationCard
+                      id={consultation.id}
+                      doctorName={consultation.doctorName}
+                      doctorSpecialty={consultation.doctorSpecialty}
+                      status={consultation.status}
+                      date={consultation.date}
+                      time={consultation.time}
+                      type={consultation.type}
+                      price={consultation.price}
+                      onActionClick={() => handleStartConsultation(consultation)}
+                      actionLabel="Start Consultation"
+                      actionIcon={<Video className="mr-2 h-4 w-4" />}
+                    />
+                    <div className="flex gap-2 mt-2">
+                      <Button variant="outline" size="sm" className="flex-1" onClick={() => handleChat(consultation)}>
+                        <MessageSquare className="mr-2 h-4 w-4" />
+                        Chat
+                      </Button>
+                      <Button variant="outline" size="sm" className="flex-1" onClick={() => handleWritePrescription(consultation)}>
+                        <FileText className="mr-2 h-4 w-4" />
+                        Prescription
+                      </Button>
+                      <Button variant="outline" size="sm" className="flex-1" onClick={() => handleCompleteConsultation(consultation)}>
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Complete
+                      </Button>
+                    </div>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="col-span-3 p-8 text-center">
+                  <CalendarIcon className="mx-auto h-12 w-12 text-muted-foreground opacity-50 mb-2" />
+                  <h3 className="text-lg font-medium">No upcoming appointments</h3>
+                  <p className="text-muted-foreground">You don't have any upcoming appointments scheduled.</p>
+                </div>
+              )}
+            </motion.div>
+          </TabsContent>
+
+          <TabsContent value="pending" className="space-y-4">
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+            >
+              {getFilteredConsultations().length > 0 ? (
+                getFilteredConsultations().map(consultation => (
+                  <motion.div key={consultation.id} variants={itemVariants}>
+                    <ConsultationCard
+                      id={consultation.id}
+                      doctorName={consultation.doctorName}
+                      doctorSpecialty={consultation.doctorSpecialty}
+                      status={consultation.status}
+                      date={consultation.date}
+                      time={consultation.time}
+                      type={consultation.type}
+                      price={consultation.price}
+                      onActionClick={() => handleAcceptConsultation(consultation)}
+                      actionLabel="Accept Request"
+                      actionIcon={<CheckCircle className="mr-2 h-4 w-4" />}
+                    />
+                    <div className="flex gap-2 mt-2">
+                      <Button variant="outline" size="sm" className="flex-1" onClick={() => handleChat(consultation)}>
+                        <MessageSquare className="mr-2 h-4 w-4" />
+                        Chat
+                      </Button>
+                      <Button variant="destructive" size="sm" className="flex-1">
+                        <XCircle className="mr-2 h-4 w-4" />
+                        Decline
+                      </Button>
+                    </div>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="col-span-3 p-8 text-center">
+                  <User className="mx-auto h-12 w-12 text-muted-foreground opacity-50 mb-2" />
+                  <h3 className="text-lg font-medium">No pending requests</h3>
+                  <p className="text-muted-foreground">You don't have any pending consultation requests.</p>
+                </div>
+              )}
+            </motion.div>
+          </TabsContent>
+
+          <TabsContent value="history" className="space-y-4">
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              animate="visible"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+            >
+              {getFilteredConsultations().length > 0 ? (
+                getFilteredConsultations().map(consultation => (
+                  <motion.div key={consultation.id} variants={itemVariants}>
+                    <ConsultationCard
+                      id={consultation.id}
+                      doctorName={consultation.doctorName}
+                      doctorSpecialty={consultation.doctorSpecialty}
+                      status={consultation.status}
+                      date={consultation.date}
+                      time={consultation.time}
+                      type={consultation.type}
+                      price={consultation.price}
+                      onActionClick={() => handleWritePrescription(consultation)}
+                      actionLabel="View Details"
+                    />
+                    <div className="flex gap-2 mt-2">
+                      {db.prescriptions.getByConsultationId(consultation.id) ? (
+                        <Button variant="outline" size="sm" className="flex-1">
+                          <Download className="mr-2 h-4 w-4" />
+                          Download Prescription
+                        </Button>
+                      ) : (
+                        <Button variant="outline" size="sm" className="flex-1" onClick={() => handleWritePrescription(consultation)}>
+                          <FileText className="mr-2 h-4 w-4" />
+                          Write Prescription
+                        </Button>
+                      )}
+                    </div>
+                  </motion.div>
+                ))
+              ) : (
+                <div className="col-span-3 p-8 text-center">
+                  <CheckCircle className="mx-auto h-12 w-12 text-muted-foreground opacity-50 mb-2" />
+                  <h3 className="text-lg font-medium">No consultation history</h3>
+                  <p className="text-muted-foreground">You don't have any completed consultations yet.</p>
+                </div>
+              )}
+            </motion.div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Video Consultation Modal */}
+        <Dialog open={isVideoModalOpen} onOpenChange={setIsVideoModalOpen}>
+          <DialogContent className="max-w-5xl p-0 h-[80vh]">
+            {selectedConsultation && (
+              <VideoConsultation
+                consultationId={selectedConsultation.id}
+                roomId={selectedConsultation.roomId || "default-room"}
+                patientName={selectedConsultation.patientName}
+                onClose={() => setIsVideoModalOpen(false)}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Chat Modal */}
+        <Dialog open={isChatModalOpen} onOpenChange={setIsChatModalOpen}>
+          <DialogContent className="max-w-2xl p-0 h-[80vh]">
+            {selectedConsultation && (
+              <ChatInterface
+                consultationId={selectedConsultation.id}
+                currentUserId={doctorId}
+                userType="doctor"
+                recipientName={selectedConsultation.patientName}
+                onClose={() => setIsChatModalOpen(false)}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Prescription Modal */}
+        <Dialog open={isPrescriptionModalOpen} onOpenChange={setIsPrescriptionModalOpen}>
+          <DialogContent className="max-w-3xl">
+            {selectedConsultation && (
+              <PrescriptionForm
+                consultation={selectedConsultation}
+                doctorName={doctor.name}
+                doctorSpecialty={doctor.specialty}
+                onSave={handleSavePrescription}
+                onCancel={() => setIsPrescriptionModalOpen(false)}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
+      </motion.div>
     </div>
   );
 };
