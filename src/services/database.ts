@@ -1,4 +1,3 @@
-
 // Database simulation using localStorage for browser compatibility
 // Define types for our data models
 export interface Doctor {
@@ -24,6 +23,7 @@ export interface Patient {
   email: string;
   phone: string;
   avatar?: string;
+  location: string;
   status: 'active' | 'inactive';
   joinedDate: string;
 }
@@ -76,6 +76,32 @@ export interface Message {
   content: string;
   timestamp: string;
   isRead: boolean;
+}
+
+export interface Transaction {
+  id: string;
+  type: 'credit' | 'debit';
+  amount: number;
+  date: string;
+  description: string;
+  patientId?: string;
+  consultationId?: string;
+}
+
+export interface HealthMetric {
+  name: string;
+  value: number;
+  unit: string;
+  normalRange: string;
+  status: 'normal' | 'warning' | 'alert';
+}
+
+export interface UserProfileData {
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  bio?: string;
 }
 
 // Helper functions to work with localStorage
@@ -139,6 +165,46 @@ export const initializeDatabase = () => {
           "Board Certified by the American Board of Cardiology"
         ],
         status: 'approved'
+      },
+      {
+        id: "2",
+        name: "Dr. Emma Wilson",
+        specialty: "Cardiologist",
+        rating: 4.8,
+        experience: 12,
+        location: "New York, NY",
+        price: 120,
+        availability: "Mon-Fri, 9AM-5PM",
+        email: "emma@example.com",
+        phone: "+1 (555) 123-4567",
+        bio: "Board-certified cardiologist with expertise in non-invasive cardiology, cardiovascular imaging, and women's heart health.",
+        education: [
+          "MD, Stanford University School of Medicine",
+          "Cardiology Fellowship, Cleveland Clinic",
+          "Internal Medicine Residency, Massachusetts General Hospital",
+          "Board Certified in Cardiovascular Disease"
+        ],
+        status: 'approved'
+      },
+      {
+        id: "3",
+        name: "Dr. Michael Chen",
+        specialty: "Neurologist",
+        rating: 4.7,
+        experience: 8,
+        location: "San Francisco, CA",
+        price: 140,
+        availability: "Mon, Wed, Fri, 10AM-6PM",
+        email: "michael@example.com",
+        phone: "+1 (555) 234-5678",
+        bio: "Neurologist specializing in stroke prevention, headache disorders, and neurodegenerative diseases with a focus on personalized treatment plans.",
+        education: [
+          "MD, Johns Hopkins School of Medicine",
+          "Neurology Residency, UCSF Medical Center",
+          "Fellowship in Vascular Neurology, Mayo Clinic",
+          "Board Certified in Neurology"
+        ],
+        status: 'approved'
       }
     ];
     setItem('doctors', doctors);
@@ -152,6 +218,7 @@ export const initializeDatabase = () => {
         name: "John Doe",
         email: "patient@example.com",
         phone: "+1 (555) 123-4567",
+        location: "New York, NY",
         status: "active",
         joinedDate: "2023-01-15"
       }
@@ -161,7 +228,58 @@ export const initializeDatabase = () => {
 
   // Initialize consultations
   if (!localStorage.getItem('consultations')) {
-    setItem('consultations', []);
+    const consultations: Consultation[] = [
+      {
+        id: "1",
+        doctorId: "2",
+        patientId: "1",
+        doctorName: "Dr. Emma Wilson",
+        doctorSpecialty: "Cardiologist",
+        patientName: "John Doe",
+        status: "upcoming",
+        date: "Oct 15, 2023",
+        time: "10:00 AM",
+        type: "video",
+        price: 120,
+        symptoms: "Chest pain, shortness of breath during exercise",
+        paymentStatus: "completed",
+        roomId: "room_abc123"
+      },
+      {
+        id: "2",
+        doctorId: "3",
+        patientId: "1",
+        doctorName: "Dr. Michael Chen",
+        doctorSpecialty: "Neurologist",
+        patientName: "John Doe",
+        status: "completed",
+        date: "Oct 5, 2023",
+        time: "2:30 PM",
+        type: "audio",
+        price: 100,
+        symptoms: "Frequent headaches, sensitivity to light",
+        notes: "Patient reported improvement with prescribed medication. Recommended follow-up in 3 months.",
+        paymentStatus: "completed",
+        roomId: "room_def456"
+      },
+      {
+        id: "3",
+        doctorId: "1",
+        patientId: "1",
+        doctorName: "Dr. Andrew Miller",
+        doctorSpecialty: "Cardiologist",
+        patientName: "John Doe",
+        status: "pending",
+        date: "Oct 20, 2023",
+        time: "4:15 PM",
+        type: "chat",
+        price: 90,
+        symptoms: "Follow-up for previous heart condition",
+        paymentStatus: "pending",
+        roomId: "room_ghi789"
+      }
+    ];
+    setItem('consultations', consultations);
   }
 
   // Initialize prescriptions
@@ -171,7 +289,69 @@ export const initializeDatabase = () => {
 
   // Initialize messages
   if (!localStorage.getItem('messages')) {
-    setItem('messages', []);
+    const messages: Message[] = [
+      {
+        id: "1",
+        consultationId: "2",
+        senderId: "3", // Dr. Michael Chen
+        senderType: "doctor",
+        content: "Hello John, how are your headaches since our last consultation?",
+        timestamp: "2023-10-06T10:15:00Z",
+        isRead: true
+      },
+      {
+        id: "2",
+        consultationId: "2",
+        senderId: "1", // Patient (John)
+        senderType: "patient",
+        content: "Hi Dr. Chen, they've improved with the medication you prescribed, but I still get occasional mild headaches.",
+        timestamp: "2023-10-06T10:18:00Z",
+        isRead: true
+      },
+      {
+        id: "3",
+        consultationId: "2",
+        senderId: "3", // Dr. Michael Chen
+        senderType: "doctor",
+        content: "That's good to hear. If the mild headaches persist, we might need to adjust the dosage. Let's discuss this in your next appointment.",
+        timestamp: "2023-10-06T10:20:00Z",
+        isRead: true
+      }
+    ];
+    setItem('messages', messages);
+  }
+
+  // Initialize transactions
+  if (!localStorage.getItem('transactions')) {
+    const transactions: Transaction[] = [
+      {
+        id: "1",
+        type: "credit",
+        amount: 200,
+        date: "Oct 1, 2023",
+        description: "Added funds via credit card",
+        patientId: "1"
+      },
+      {
+        id: "2",
+        type: "debit",
+        amount: 120,
+        date: "Oct 2, 2023",
+        description: "Payment for Dr. Emma Wilson consultation",
+        patientId: "1",
+        consultationId: "1"
+      },
+      {
+        id: "3",
+        type: "debit",
+        amount: 100,
+        date: "Oct 3, 2023",
+        description: "Payment for Dr. Michael Chen consultation",
+        patientId: "1",
+        consultationId: "2"
+      }
+    ];
+    setItem('transactions', transactions);
   }
 
   console.log("Database initialized with sample data");
@@ -444,6 +624,49 @@ export const databaseService = {
     getUnreadCount: (userId: string): number => {
       const messages = getItem<Message[]>('messages', []);
       return messages.filter(m => m.senderId !== userId && !m.isRead).length;
+    }
+  },
+  
+  // Transaction operations
+  transactions: {
+    getAll: (): Transaction[] => {
+      return getItem<Transaction[]>('transactions', []);
+    },
+    getById: (id: string): Transaction | null => {
+      const transactions = getItem<Transaction[]>('transactions', []);
+      const transaction = transactions.find(t => t.id === id);
+      return transaction || null;
+    },
+    create: (transaction: Omit<Transaction, 'id'>): Transaction => {
+      const transactions = getItem<Transaction[]>('transactions', []);
+      const id = crypto.randomUUID();
+      const newTransaction: Transaction = { ...transaction, id };
+      transactions.push(newTransaction);
+      setItem('transactions', transactions);
+      return newTransaction;
+    },
+    getByPatientId: (patientId: string): Transaction[] => {
+      const transactions = getItem<Transaction[]>('transactions', []);
+      return transactions.filter(t => t.patientId === patientId);
+    },
+    addFunds: (patientId: string, amount: number): Transaction => {
+      return databaseService.transactions.create({
+        type: 'credit',
+        amount,
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        description: "Added funds via credit card",
+        patientId
+      });
+    },
+    payForConsultation: (patientId: string, consultationId: string, amount: number, doctorName: string): Transaction => {
+      return databaseService.transactions.create({
+        type: 'debit',
+        amount,
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+        description: `Payment for Dr. ${doctorName} consultation`,
+        patientId,
+        consultationId
+      });
     }
   }
 };

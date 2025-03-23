@@ -1,11 +1,15 @@
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Mail, Phone, MapPin, Clock, Calendar, Edit } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Mail, Phone, MapPin, Clock, Calendar, Edit, CheckCircle, X } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface UserProfileProps {
   userType: 'patient' | 'doctor' | 'admin';
@@ -19,7 +23,15 @@ interface UserProfileProps {
   bio?: string;
   education?: string[];
   availability?: string;
-  onEdit?: () => void;
+  onEdit?: (updatedData: UserProfileData) => void;
+}
+
+export interface UserProfileData {
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  bio?: string;
 }
 
 const UserProfile = ({
@@ -36,6 +48,43 @@ const UserProfile = ({
   availability,
   onEdit,
 }: UserProfileProps) => {
+  const { toast } = useToast();
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState<UserProfileData>({
+    name,
+    email,
+    phone,
+    location,
+    bio: bio || "",
+  });
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSave = () => {
+    if (onEdit) {
+      onEdit(formData);
+    }
+    setIsEditing(false);
+    toast({
+      title: "Profile updated",
+      description: "Your profile information has been saved.",
+    });
+  };
+
+  const handleCancel = () => {
+    setFormData({
+      name,
+      email,
+      phone,
+      location,
+      bio: bio || "",
+    });
+    setIsEditing(false);
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -49,12 +98,21 @@ const UserProfile = ({
               <Avatar className="h-20 w-20 border">
                 <AvatarImage src={avatar} />
                 <AvatarFallback className="bg-primary/10 text-primary text-xl">
-                  {name.split(' ').map(n => n[0]).join('')}
+                  {formData.name.split(' ').map(n => n[0]).join('')}
                 </AvatarFallback>
               </Avatar>
               <div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-2xl font-semibold">{name}</h2>
+                  {isEditing ? (
+                    <Input 
+                      name="name"
+                      value={formData.name}
+                      onChange={handleInputChange}
+                      className="text-xl font-semibold h-auto py-1"
+                    />
+                  ) : (
+                    <h2 className="text-2xl font-semibold">{formData.name}</h2>
+                  )}
                   {userType === 'doctor' && (
                     <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
                       {specialty}
@@ -78,28 +136,75 @@ const UserProfile = ({
                 )}
               </div>
             </div>
-            <Button variant="outline" size="sm" onClick={onEdit}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit Profile
-            </Button>
+            {isEditing ? (
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={handleCancel}>
+                  <X className="h-4 w-4 mr-2" />
+                  Cancel
+                </Button>
+                <Button variant="default" size="sm" onClick={handleSave}>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Save
+                </Button>
+              </div>
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                <Edit className="h-4 w-4 mr-2" />
+                Edit Profile
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="pt-6">
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center">
-                <Mail className="h-4 w-4 mr-2 text-muted-foreground" />
-                <span>{email}</span>
-              </div>
-              <div className="flex items-center">
-                <Phone className="h-4 w-4 mr-2 text-muted-foreground" />
-                <span>{phone}</span>
-              </div>
-              <div className="flex items-center">
-                <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
-                <span>{location}</span>
-              </div>
-              {userType === 'doctor' && availability && (
+              {isEditing ? (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone</Label>
+                    <Input
+                      id="phone"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="location">Location</Label>
+                    <Input
+                      id="location"
+                      name="location"
+                      value={formData.location}
+                      onChange={handleInputChange}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center">
+                    <Mail className="h-4 w-4 mr-2 text-muted-foreground" />
+                    <span>{formData.email}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Phone className="h-4 w-4 mr-2 text-muted-foreground" />
+                    <span>{formData.phone}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <MapPin className="h-4 w-4 mr-2 text-muted-foreground" />
+                    <span>{formData.location}</span>
+                  </div>
+                </>
+              )}
+              {userType === 'doctor' && availability && !isEditing && (
                 <div className="flex items-center">
                   <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
                   <span>Available {availability}</span>
@@ -107,14 +212,23 @@ const UserProfile = ({
               )}
             </div>
 
-            {bio && (
+            {(bio || isEditing) && (
               <div>
                 <h3 className="text-lg font-medium mb-2">About</h3>
-                <p className="text-muted-foreground">{bio}</p>
+                {isEditing ? (
+                  <Input
+                    name="bio"
+                    value={formData.bio}
+                    onChange={handleInputChange}
+                    className="w-full"
+                  />
+                ) : (
+                  <p className="text-muted-foreground">{formData.bio}</p>
+                )}
               </div>
             )}
 
-            {userType === 'doctor' && education && education.length > 0 && (
+            {userType === 'doctor' && education && education.length > 0 && !isEditing && (
               <div>
                 <h3 className="text-lg font-medium mb-2">Education & Qualifications</h3>
                 <ul className="space-y-2">
@@ -128,7 +242,7 @@ const UserProfile = ({
               </div>
             )}
 
-            {userType === 'doctor' && (
+            {userType === 'doctor' && !isEditing && (
               <div>
                 <h3 className="text-lg font-medium mb-2">Availability</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
