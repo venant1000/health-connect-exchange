@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Wallet, Plus, History, CreditCard, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import BankDetailsForm from "./BankDetailsForm";
 
 interface WalletCardProps {
   balance: number;
@@ -16,26 +17,14 @@ interface WalletCardProps {
 const WalletCard = ({ balance, onAddFunds, onViewHistory }: WalletCardProps) => {
   const { toast } = useToast();
   const [isAddFundsOpen, setIsAddFundsOpen] = useState(false);
-  const [amount, setAmount] = useState<string>("");
-
-  const handleAddFunds = () => {
-    const numAmount = parseFloat(amount);
-    if (isNaN(numAmount) || numAmount <= 0) {
-      toast({
-        title: "Invalid amount",
-        description: "Please enter a valid amount.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    onAddFunds(numAmount);
-    setAmount("");
+  
+  const handleAddFunds = (amount: number) => {
+    onAddFunds(amount);
     setIsAddFundsOpen(false);
     
     toast({
       title: "Funds added",
-      description: `$${numAmount.toFixed(2)} has been added to your wallet.`,
+      description: `$${amount.toFixed(2)} has been added to your wallet.`,
     });
   };
 
@@ -60,44 +49,10 @@ const WalletCard = ({ balance, onAddFunds, onViewHistory }: WalletCardProps) => 
               <DialogHeader>
                 <DialogTitle>Add funds to wallet</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <label htmlFor="amount" className="text-sm font-medium">
-                    Amount
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-2.5">$</span>
-                    <Input
-                      id="amount"
-                      placeholder="0.00"
-                      className="pl-7"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      type="number"
-                      min="0"
-                      step="0.01"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label htmlFor="payment-method" className="text-sm font-medium">
-                    Payment Method
-                  </label>
-                  <div className="p-3 border rounded-md flex items-center">
-                    <CreditCard className="h-5 w-5 mr-2 text-muted-foreground" />
-                    <span>•••• •••• •••• 4242</span>
-                    <CheckCircle className="h-4 w-4 ml-auto text-green-500" />
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddFundsOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleAddFunds}>
-                  Add Funds
-                </Button>
-              </DialogFooter>
+              <BankDetailsForm 
+                onSubmit={handleAddFunds}
+                onCancel={() => setIsAddFundsOpen(false)}
+              />
             </DialogContent>
           </Dialog>
           <Button variant="ghost" size="sm" onClick={onViewHistory}>

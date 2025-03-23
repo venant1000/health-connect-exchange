@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Search, Plus, Filter, MapPin, ArrowRight, ChevronRight, Video, MessageSquare, X } from "lucide-react";
+import { Search, Plus, Filter, MapPin, ArrowRight, ChevronRight, Video, MessageSquare, X, Download, FileText } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import DoctorCard from "@/components/DoctorCard";
 import ConsultationCard from "@/components/ConsultationCard";
@@ -12,6 +12,7 @@ import HealthStatusCard from "@/components/HealthStatusCard";
 import ConsultationDetails from "@/components/ConsultationDetails";
 import VideoConsultation from "@/components/VideoConsultation";
 import ChatInterface from "@/components/ChatInterface";
+import PrescriptionViewer from "@/components/PrescriptionViewer";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,6 +21,30 @@ import { useToast } from "@/hooks/use-toast";
 import { db, Consultation, Patient, Transaction, HealthMetric, UserProfileData } from "@/services/database";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import BookDoctorPage from "./BookDoctorPage";
+
+const prescriptionsData = [
+  {
+    id: "1",
+    patientName: "John Doe",
+    doctorName: "Dr. Emma Wilson",
+    date: "October 15, 2023",
+    medications: [
+      { name: "Amoxicillin", dosage: "500mg", frequency: "3 times daily", duration: "7 days" },
+      { name: "Ibuprofen", dosage: "400mg", frequency: "As needed", duration: "5 days" }
+    ],
+    notes: "Take with food. Complete the full course of antibiotics even if you start feeling better."
+  },
+  {
+    id: "2",
+    patientName: "John Doe",
+    doctorName: "Dr. Michael Chen",
+    date: "September 3, 2023",
+    medications: [
+      { name: "Loratadine", dosage: "10mg", frequency: "Once daily", duration: "30 days" }
+    ],
+    notes: "For seasonal allergies. Take in the morning."
+  }
+];
 
 const patientData: Patient = {
   id: "1",
@@ -104,14 +129,18 @@ const PatientHome = () => {
   const [wallet, setWallet] = useState({ balance: 350 });
   const [showWalletHistory, setShowWalletHistory] = useState(false);
   const [consultations, setConsultations] = useState<Consultation[]>([]);
-  const [doctors, setDoctors] = useState<any[]>([]);
+  const [loggedInUser, setLoggedInUser] = useState<Patient | null>(null);
   
   useEffect(() => {
+    const currentUser = localStorage.getItem('currentUser');
+    if (currentUser) {
+      setLoggedInUser(JSON.parse(currentUser));
+    } else {
+      setLoggedInUser(patientData);
+    }
+    
     const patientConsultations = db.consultations.getByPatientId("1");
     setConsultations(patientConsultations);
-    
-    const allDoctors = db.doctors.getAll();
-    setDoctors(allDoctors);
   }, []);
   
   const handleAddFunds = (amount: number) => {
@@ -132,7 +161,7 @@ const PatientHome = () => {
       transition={{ duration: 0.5 }}
       className="container py-6 max-w-7xl"
     >
-      <h1 className="text-3xl font-semibold mb-6">Welcome, {patientData.name}</h1>
+      <h1 className="text-3xl font-semibold mb-6">Welcome, {loggedInUser?.name || "Patient"}</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <Card className="bg-gradient-to-br from-health-600 to-health-700 text-white">
@@ -200,41 +229,9 @@ const PatientHome = () => {
       <div className="mb-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-4">
           <h2 className="text-2xl font-semibold">Find Doctors</h2>
-          <div className="flex items-center mt-3 md:mt-0">
-            <div className="relative w-64 mr-2">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search by name or specialty" className="pl-9" />
-            </div>
-            <Button variant="outline" size="icon" className="mr-2">
-              <Filter className="h-4 w-4" />
-            </Button>
-            <Button onClick={() => navigate("/patient-dashboard/book")}>
-              <Plus className="h-4 w-4 mr-2" />
-              Request Consultation
-            </Button>
-          </div>
-        </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {doctors.slice(0, 3).map((doctor) => (
-            <DoctorCard
-              key={doctor.id}
-              id={doctor.id}
-              name={doctor.name}
-              specialty={doctor.specialty}
-              rating={doctor.rating}
-              experience={doctor.experience}
-              location={doctor.location}
-              price={doctor.price}
-              availability={doctor.availability}
-              onClick={() => navigate(`/patient-dashboard/book/${doctor.id}`)}
-            />
-          ))}
-        </div>
-        <div className="mt-4 text-center">
-          <Button variant="outline" className="mt-2" onClick={() => navigate('/patient-dashboard/book')}>
-            View All Doctors
-            <ChevronRight className="h-4 w-4 ml-1" />
+          <Button onClick={() => navigate("/patient-dashboard/book")} className="mt-3 md:mt-0">
+            <Plus className="h-4 w-4 mr-2" />
+            Request Consultation
           </Button>
         </div>
       </div>
@@ -371,6 +368,19 @@ const PatientConsultations = () => {
       toast({
         title: "Cannot join consultation",
         description: "You can only join upcoming consultations.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const consultDate = new Date(`${selectedConsultation.date} ${selectedConsultation.time}`);
+    const now = new Date();
+    const timeUntilConsult = consultDate.getTime() - now.getTime();
+    
+    if (timeUntilConsult > 5 * 60 * 1000) {
+      toast({
+        title: "Consultation not started yet",
+        description: `Your consultation is scheduled for ${selectedConsultation.date} at ${selectedConsultation.time}. You can join 5 minutes before the scheduled time.`,
         variant: "destructive"
       });
       return;
@@ -599,18 +609,100 @@ const PatientConsultations = () => {
   );
 };
 
+const PatientPrescriptions = () => {
+  const [prescriptions, setPrescriptions] = useState(prescriptionsData);
+  const [selectedPrescription, setSelectedPrescription] = useState<any>(null);
+  const [showPrescriptionViewer, setShowPrescriptionViewer] = useState(false);
+  
+  const handleViewPrescription = (prescription: any) => {
+    setSelectedPrescription(prescription);
+    setShowPrescriptionViewer(true);
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      className="container py-6 max-w-7xl"
+    >
+      <h1 className="text-3xl font-semibold mb-6">My Prescriptions</h1>
+      
+      {prescriptions.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {prescriptions.map((prescription) => (
+            <Card key={prescription.id} className="overflow-hidden hover:shadow-md transition-shadow">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-lg flex items-center">
+                  <FileText className="h-5 w-5 mr-2 text-primary" />
+                  Prescription #{prescription.id}
+                </CardTitle>
+                <CardDescription>
+                  Issued: {prescription.date}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pb-3">
+                <div className="text-sm mb-3">
+                  <p><span className="font-medium">Doctor:</span> {prescription.doctorName}</p>
+                  <p className="mt-1 text-muted-foreground line-clamp-2">
+                    {prescription.medications.length} medication(s) prescribed
+                  </p>
+                </div>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full"
+                  onClick={() => handleViewPrescription(prescription)}
+                >
+                  <FileText className="h-4 w-4 mr-1" />
+                  View Details
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12 border rounded-lg bg-muted/30">
+          <FileText className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+          <h3 className="text-lg font-medium mb-1">No prescriptions yet</h3>
+          <p className="text-sm text-muted-foreground">
+            Your prescriptions will appear here after your doctor issues them.
+          </p>
+        </div>
+      )}
+      
+      <PrescriptionViewer
+        prescription={selectedPrescription}
+        isOpen={showPrescriptionViewer}
+        onClose={() => setShowPrescriptionViewer(false)}
+      />
+    </motion.div>
+  );
+};
+
 const PatientProfile = () => {
   const { toast } = useToast();
   const [patient, setPatient] = useState<Patient>(patientData);
   
+  useEffect(() => {
+    const currentUser = localStorage.getItem('currentUser');
+    if (currentUser) {
+      setPatient(JSON.parse(currentUser));
+    }
+  }, []);
+  
   const handleEdit = (updatedData: UserProfileData) => {
-    setPatient(prev => ({
-      ...prev,
+    const updatedPatient = {
+      ...patient,
       name: updatedData.name,
       email: updatedData.email,
       phone: updatedData.phone,
       location: updatedData.location
-    }));
+    };
+    
+    setPatient(updatedPatient);
+    
+    localStorage.setItem('currentUser', JSON.stringify(updatedPatient));
     
     toast({
       title: "Profile updated",
@@ -736,6 +828,11 @@ const PatientDashboard = () => {
   useEffect(() => {
     if (location.pathname === '/patient-dashboard') {
     }
+    
+    const currentUser = localStorage.getItem('currentUser');
+    if (!currentUser) {
+      localStorage.setItem('currentUser', JSON.stringify(patientData));
+    }
   }, [location.pathname, navigate]);
 
   return (
@@ -745,6 +842,7 @@ const PatientDashboard = () => {
         <Routes>
           <Route path="/" element={<PatientHome />} />
           <Route path="/consultations" element={<PatientConsultations />} />
+          <Route path="/prescriptions" element={<PatientPrescriptions />} />
           <Route path="/profile" element={<PatientProfile />} />
           <Route path="/messages" element={<PatientMessages />} />
           <Route path="/book" element={<BookDoctorPage />} />
