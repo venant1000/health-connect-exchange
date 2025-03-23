@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,22 +8,138 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Mail, Lock, User, Phone, FileCheck, ShieldCheck } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { authService } from "@/services/auth";
+import { db } from "@/services/database";
 
 const Login = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("login");
   const [userType, setUserType] = useState("patient");
   
-  const handleLogin = (e: React.FormEvent) => {
+  // Login form state
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  
+  // Signup form state
+  const [signupName, setSignupName] = useState("");
+  const [signupEmail, setSignupEmail] = useState("");
+  const [signupPhone, setSignupPhone] = useState("");
+  const [signupPassword, setSignupPassword] = useState("");
+  
+  const handleLogin = (e: FormEvent) => {
     e.preventDefault();
-    // In a real app, we would validate credentials and authenticate
     
-    if (userType === "patient") {
-      navigate("/patient-dashboard");
-    } else if (userType === "doctor") {
-      navigate("/doctor-dashboard");
-    } else if (userType === "admin") {
-      navigate("/admin-dashboard");
+    if (!loginEmail || !loginPassword) {
+      toast({
+        title: "Error",
+        description: "Please enter both email and password",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    const user = authService.login(loginEmail, loginPassword);
+    
+    if (user) {
+      toast({
+        title: "Welcome back!",
+        description: "You have successfully logged in.",
+      });
+      
+      if (user.type === "patient") {
+        navigate("/patient-dashboard");
+      } else if (user.type === "doctor") {
+        navigate("/doctor-dashboard");
+      } else if (user.type === "admin") {
+        navigate("/admin-dashboard");
+      }
+    } else {
+      toast({
+        title: "Login failed",
+        description: "Invalid email or password. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleSignup = (e: FormEvent) => {
+    e.preventDefault();
+    
+    // Validate form
+    if (!signupName || !signupEmail || !signupPassword) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Create patient or doctor record
+    try {
+      if (userType === "patient") {
+        const patient = db.patients.create({
+          name: signupName,
+          email: signupEmail,
+          phone: signupPhone,
+          status: "active",
+          joinedDate: new Date().toISOString().split('T')[0]
+        });
+        
+        // Create user account linked to patient
+        const user = authService.register({
+          type: "patient",
+          email: signupEmail,
+          password: signupPassword,
+          patientId: patient.id
+        });
+        
+        if (user) {
+          toast({
+            title: "Registration successful!",
+            description: "Your patient account has been created.",
+          });
+          navigate("/patient-dashboard");
+        }
+      } else if (userType === "doctor") {
+        // For doctors, we need admin approval
+        const doctor = db.doctors.create({
+          name: signupName,
+          email: signupEmail,
+          phone: signupPhone,
+          specialty: "General Practitioner", // Default
+          rating: 0,
+          experience: 0,
+          price: 0,
+          status: "pending",
+          education: []
+        });
+        
+        // Create user account linked to doctor
+        const user = authService.register({
+          type: "doctor",
+          email: signupEmail,
+          password: signupPassword,
+          doctorId: doctor.id
+        });
+        
+        if (user) {
+          toast({
+            title: "Registration pending",
+            description: "Your doctor account has been created and is pending approval.",
+          });
+          navigate("/doctor-dashboard");
+        }
+      }
+    } catch (error) {
+      console.error("Registration error:", error);
+      toast({
+        title: "Registration failed",
+        description: "An error occurred during registration.",
+        variant: "destructive"
+      });
     }
   };
 
@@ -111,7 +227,13 @@ const Login = () => {
                         <Label htmlFor="email">Email</Label>
                         <div className="relative">
                           <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                          <Input id="email" placeholder="Enter your email" className="pl-10" />
+                          <Input 
+                            id="email" 
+                            placeholder="Enter your email" 
+                            className="pl-10" 
+                            value={loginEmail}
+                            onChange={(e) => setLoginEmail(e.target.value)}
+                          />
                         </div>
                       </div>
                       <div className="space-y-2">
@@ -123,7 +245,14 @@ const Login = () => {
                         </div>
                         <div className="relative">
                           <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                          <Input id="password" type="password" placeholder="••••••••" className="pl-10" />
+                          <Input 
+                            id="password" 
+                            type="password" 
+                            placeholder="••••••••" 
+                            className="pl-10" 
+                            value={loginPassword}
+                            onChange={(e) => setLoginPassword(e.target.value)}
+                          />
                         </div>
                       </div>
                       <Button type="submit" className="w-full">
@@ -154,33 +283,58 @@ const Login = () => {
                       </Button>
                     </div>
                     
-                    <form className="space-y-4">
+                    <form onSubmit={handleSignup} className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="full-name">Full Name</Label>
                         <div className="relative">
                           <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                          <Input id="full-name" placeholder="Enter your full name" className="pl-10" />
+                          <Input 
+                            id="full-name" 
+                            placeholder="Enter your full name" 
+                            className="pl-10" 
+                            value={signupName}
+                            onChange={(e) => setSignupName(e.target.value)}
+                          />
                         </div>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="signup-email">Email</Label>
                         <div className="relative">
                           <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                          <Input id="signup-email" placeholder="Enter your email" className="pl-10" />
+                          <Input 
+                            id="signup-email" 
+                            placeholder="Enter your email" 
+                            className="pl-10" 
+                            value={signupEmail}
+                            onChange={(e) => setSignupEmail(e.target.value)}
+                          />
                         </div>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="phone">Phone Number</Label>
                         <div className="relative">
                           <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                          <Input id="phone" placeholder="Enter your phone number" className="pl-10" />
+                          <Input 
+                            id="phone" 
+                            placeholder="Enter your phone number" 
+                            className="pl-10" 
+                            value={signupPhone}
+                            onChange={(e) => setSignupPhone(e.target.value)}
+                          />
                         </div>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="signup-password">Password</Label>
                         <div className="relative">
                           <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                          <Input id="signup-password" type="password" placeholder="Create a password" className="pl-10" />
+                          <Input 
+                            id="signup-password" 
+                            type="password" 
+                            placeholder="Create a password" 
+                            className="pl-10" 
+                            value={signupPassword}
+                            onChange={(e) => setSignupPassword(e.target.value)}
+                          />
                         </div>
                       </div>
                       

@@ -20,6 +20,7 @@ interface ConsultationCardProps {
   onActionClick?: () => void;
   actionLabel?: string;
   actionIcon?: React.ReactNode;
+  roomId?: string;
 }
 
 const ConsultationCard = ({
@@ -36,6 +37,7 @@ const ConsultationCard = ({
   onActionClick,
   actionLabel,
   actionIcon,
+  roomId,
 }: ConsultationCardProps) => {
   const getStatusColor = () => {
     switch (status) {
@@ -136,6 +138,7 @@ const ConsultationCard = ({
                 variant="default" 
                 size="sm"
                 className="text-xs"
+                onClick={onActionClick}
               >
                 Join Now
               </Button>
@@ -145,6 +148,7 @@ const ConsultationCard = ({
                 variant="outline" 
                 size="sm"
                 className="text-xs"
+                onClick={onActionClick}
               >
                 Leave Review
               </Button>
@@ -154,6 +158,7 @@ const ConsultationCard = ({
                 variant="default" 
                 size="sm"
                 className="text-xs"
+                onClick={onActionClick}
               >
                 Confirm
               </Button>
