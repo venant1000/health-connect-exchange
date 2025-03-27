@@ -15,6 +15,7 @@ export interface Doctor {
   bio: string;
   education: string[];
   status: 'pending' | 'approved' | 'rejected';
+  licenseDocument?: string; // New field for license document
 }
 
 export interface Patient {
@@ -44,7 +45,7 @@ export interface Consultation {
   doctorName: string;
   doctorSpecialty: string;
   patientName: string;
-  status: 'pending' | 'upcoming' | 'completed' | 'cancelled';
+  status: 'pending' | 'upcoming' | 'completed' | 'cancelled' | 'negotiating'; // Added 'negotiating' status
   date: string;
   time: string;
   type: 'video' | 'audio' | 'chat';
@@ -86,22 +87,17 @@ export interface Transaction {
   description: string;
   patientId?: string;
   consultationId?: string;
+  doctorId?: string; // Added doctorId to track which doctor received payment
 }
 
-export interface HealthMetric {
-  name: string;
-  value: number;
-  unit: string;
-  normalRange: string;
-  status: 'normal' | 'warning' | 'alert';
-}
-
-export interface UserProfileData {
-  name: string;
-  email: string;
-  phone: string;
-  location: string;
-  bio?: string;
+// New interface for price negotiations
+export interface PriceNegotiation {
+  id: string;
+  consultationId: string;
+  proposedPrice: number;
+  status: 'pending' | 'accepted' | 'rejected';
+  initiatedBy: 'doctor' | 'patient';
+  timestamp: string;
 }
 
 // Helper functions to work with localStorage
@@ -164,7 +160,8 @@ export const initializeDatabase = () => {
           "Residency in Internal Medicine, Johns Hopkins Hospital",
           "Board Certified by the American Board of Cardiology"
         ],
-        status: 'approved'
+        status: 'approved',
+        licenseDocument: "license_1.pdf" // Mock license document
       },
       {
         id: "2",
@@ -354,6 +351,11 @@ export const initializeDatabase = () => {
     setItem('transactions', transactions);
   }
 
+  // Initialize price negotiations (new)
+  if (!localStorage.getItem('priceNegotiations')) {
+    setItem('priceNegotiations', []);
+  }
+
   console.log("Database initialized with sample data");
 };
 
@@ -426,6 +428,28 @@ export const databaseService = {
     getByStatus: (status: Doctor['status']): Doctor[] => {
       const doctors = getItem<Doctor[]>('doctors', []);
       return doctors.filter(d => d.status === status);
+    },
+    uploadLicenseDocument: (id: string, documentUrl: string): Doctor | null => {
+      const doctors = getItem<Doctor[]>('doctors', []);
+      const index = doctors.findIndex(d => d.id === id);
+      if (index === -1) return null;
+      
+      doctors[index].licenseDocument = documentUrl;
+      setItem('doctors', doctors);
+      return doctors[index];
+    },
+    getPendingVerifications: (): Doctor[] => {
+      const doctors = getItem<Doctor[]>('doctors', []);
+      return doctors.filter(d => d.status === 'pending');
+    },
+    updateVerificationStatus: (id: string, status: 'approved' | 'rejected'): Doctor | null => {
+      const doctors = getItem<Doctor[]>('doctors', []);
+      const index = doctors.findIndex(d => d.id === id);
+      if (index === -1) return null;
+      
+      doctors[index].status = status;
+      setItem('doctors', doctors);
+      return doctors[index];
     }
   },
   
@@ -525,6 +549,24 @@ export const databaseService = {
         return consultations.filter(c => c.doctorId === doctorId && c.status === status);
       }
       return consultations.filter(c => c.doctorId === doctorId);
+    },
+    updateStatus: (id: string, status: Consultation['status']): Consultation | null => {
+      const consultations = getItem<Consultation[]>('consultations', []);
+      const index = consultations.findIndex(c => c.id === id);
+      if (index === -1) return null;
+      
+      consultations[index].status = status;
+      setItem('consultations', consultations);
+      return consultations[index];
+    },
+    updatePrice: (id: string, newPrice: number): Consultation | null => {
+      const consultations = getItem<Consultation[]>('consultations', []);
+      const index = consultations.findIndex(c => c.id === id);
+      if (index === -1) return null;
+      
+      consultations[index].price = newPrice;
+      setItem('consultations', consultations);
+      return consultations[index];
     }
   },
   
@@ -649,6 +691,10 @@ export const databaseService = {
       const transactions = getItem<Transaction[]>('transactions', []);
       return transactions.filter(t => t.patientId === patientId);
     },
+    getByDoctorId: (doctorId: string): Transaction[] => {
+      const transactions = getItem<Transaction[]>('transactions', []);
+      return transactions.filter(t => t.doctorId === doctorId);
+    },
     addFunds: (patientId: string, amount: number): Transaction => {
       return databaseService.transactions.create({
         type: 'credit',
@@ -658,15 +704,111 @@ export const databaseService = {
         patientId
       });
     },
-    payForConsultation: (patientId: string, consultationId: string, amount: number, doctorName: string): Transaction => {
+    payForConsultation: (patientId: string, consultationId: string, amount: number, doctorName: string, doctorId: string): Transaction => {
       return databaseService.transactions.create({
         type: 'debit',
         amount,
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
         description: `Payment for Dr. ${doctorName} consultation`,
         patientId,
-        consultationId
+        consultationId,
+        doctorId
       });
+    }
+  },
+
+  // NEW: Price negotiation operations
+  priceNegotiations: {
+    getAll: (): PriceNegotiation[] => {
+      return getItem<PriceNegotiation[]>('priceNegotiations', []);
+    },
+    getById: (id: string): PriceNegotiation | null => {
+      const negotiations = getItem<PriceNegotiation[]>('priceNegotiations', []);
+      return negotiations.find(n => n.id === id) || null;
+    },
+    create: (negotiation: Omit<PriceNegotiation, 'id'>): PriceNegotiation => {
+      const negotiations = getItem<PriceNegotiation[]>('priceNegotiations', []);
+      const id = crypto.randomUUID();
+      const newNegotiation: PriceNegotiation = { ...negotiation, id };
+      negotiations.push(newNegotiation);
+      setItem('priceNegotiations', negotiations);
+      return newNegotiation;
+    },
+    getByConsultationId: (consultationId: string): PriceNegotiation[] => {
+      const negotiations = getItem<PriceNegotiation[]>('priceNegotiations', []);
+      return negotiations
+        .filter(n => n.consultationId === consultationId)
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    },
+    update: (id: string, status: 'accepted' | 'rejected'): PriceNegotiation | null => {
+      const negotiations = getItem<PriceNegotiation[]>('priceNegotiations', []);
+      const index = negotiations.findIndex(n => n.id === id);
+      if (index === -1) return null;
+      
+      negotiations[index].status = status;
+      setItem('priceNegotiations', negotiations);
+      return negotiations[index];
+    }
+  },
+  
+  // NEW: Analytics operations for admin dashboard
+  analytics: {
+    getConsultationStats: () => {
+      const consultations = getItem<Consultation[]>('consultations', []);
+      return {
+        total: consultations.length,
+        pending: consultations.filter(c => c.status === 'pending').length,
+        upcoming: consultations.filter(c => c.status === 'upcoming').length,
+        completed: consultations.filter(c => c.status === 'completed').length,
+        cancelled: consultations.filter(c => c.status === 'cancelled').length,
+        negotiating: consultations.filter(c => c.status === 'negotiating').length
+      };
+    },
+    getDoctorStats: () => {
+      const doctors = getItem<Doctor[]>('doctors', []);
+      return {
+        total: doctors.length,
+        pending: doctors.filter(d => d.status === 'pending').length,
+        approved: doctors.filter(d => d.status === 'approved').length,
+        rejected: doctors.filter(d => d.status === 'rejected').length
+      };
+    },
+    getPatientStats: () => {
+      const patients = getItem<Patient[]>('patients', []);
+      return {
+        total: patients.length,
+        active: patients.filter(p => p.status === 'active').length,
+        inactive: patients.filter(p => p.status === 'inactive').length
+      };
+    },
+    getTransactionStats: () => {
+      const transactions = getItem<Transaction[]>('transactions', []);
+      return {
+        totalAmount: transactions.reduce((sum, t) => sum + t.amount, 0),
+        creditAmount: transactions.filter(t => t.type === 'credit').reduce((sum, t) => sum + t.amount, 0),
+        debitAmount: transactions.filter(t => t.type === 'debit').reduce((sum, t) => sum + t.amount, 0),
+        transactionCount: transactions.length
+      };
+    },
+    getRevenueByMonth: () => {
+      const transactions = getItem<Transaction[]>('transactions', []);
+      const monthlyRevenue: Record<string, number> = {};
+      
+      transactions.forEach(t => {
+        if (t.type === 'debit') {
+          const date = new Date(t.date);
+          const monthYear = `${date.getMonth() + 1}/${date.getFullYear()}`;
+          if (!monthlyRevenue[monthYear]) {
+            monthlyRevenue[monthYear] = 0;
+          }
+          monthlyRevenue[monthYear] += t.amount;
+        }
+      });
+      
+      return Object.entries(monthlyRevenue).map(([month, amount]) => ({
+        month,
+        amount
+      }));
     }
   }
 };

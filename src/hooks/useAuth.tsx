@@ -35,6 +35,23 @@ export function useAuth() {
   // Helper to get the doctor ID if the user is a doctor
   const doctorId = user?.type === 'doctor' ? user.id : null;
   
+  // Helper to check if user is admin
+  const isAdmin = user?.type === 'admin';
+  
+  // Helper to get wallet balance for patients
+  const getWalletBalance = () => {
+    if (!patientId) return 0;
+    
+    const transactions = authService.getWalletTransactions(patientId);
+    return transactions.reduce((balance, t) => {
+      if (t.type === 'credit') {
+        return balance + t.amount;
+      } else {
+        return balance - t.amount;
+      }
+    }, 0);
+  };
+  
   return {
     user,
     login,
@@ -43,6 +60,8 @@ export function useAuth() {
     isAuthenticated: !!user,
     userRole: user?.type || null,
     patientId,
-    doctorId
+    doctorId,
+    isAdmin,
+    getWalletBalance
   };
 }
