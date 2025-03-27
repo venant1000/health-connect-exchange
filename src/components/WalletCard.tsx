@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Wallet, Plus, History } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import BankDetailsForm from "./BankDetailsForm";
-import { useAuth } from "@/services/auth";
+import { useAuth } from "@/hooks/useAuth";
 import { db } from "@/services/database";
 
 interface WalletCardProps {

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -42,9 +41,8 @@ import {
   DialogTitle 
 } from "@/components/ui/dialog";
 import { db, Doctor, Consultation } from "@/services/database";
-import { useAuth } from "@/services/auth";
+import { useAuth } from "@/hooks/useAuth";
 
-// Available time slots
 const timeSlots = [
   "9:00 AM", "9:30 AM", "10:00 AM", "10:30 AM", 
   "11:00 AM", "11:30 AM", "1:00 PM", "1:30 PM", 
@@ -65,11 +63,9 @@ const BookDoctorPage = () => {
   const { toast } = useToast();
   const { user, patientId } = useAuth();
   
-  // State for doctors
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
 
-  // Booking state
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [time, setTime] = useState<string | undefined>();
   const [consultationType, setConsultationType] = useState<"video" | "audio" | "chat">("video");
@@ -79,14 +75,12 @@ const BookDoctorPage = () => {
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
 
-  // Fetch doctors from the database
   useEffect(() => {
     const fetchDoctors = () => {
       const allDoctors = db.doctors.getAll();
       const approvedDoctors = allDoctors.filter(doctor => doctor.status === 'approved');
       setDoctors(approvedDoctors);
       
-      // If doctorId is provided in URL params, select that doctor
       if (doctorIdParam) {
         const doctor = approvedDoctors.find(d => d.id === doctorIdParam);
         if (doctor) {
@@ -98,7 +92,6 @@ const BookDoctorPage = () => {
     fetchDoctors();
   }, [doctorIdParam]);
 
-  // Simulate searching for available doctors
   useEffect(() => {
     if (isSearching) {
       const timer = setTimeout(() => {
@@ -139,7 +132,6 @@ const BookDoctorPage = () => {
       return;
     }
 
-    // Create a new consultation in the database
     const patient = db.patients.getById(patientId);
     
     if (!patient) {
@@ -152,9 +144,8 @@ const BookDoctorPage = () => {
     }
 
     const formattedDate = format(date, "MMM d, yyyy");
-    const totalPrice = selectedDoctor.price * 1.05; // Including platform fee
+    const totalPrice = selectedDoctor.price * 1.05;
 
-    // Create the consultation
     const newConsultation: Omit<Consultation, 'id'> = {
       doctorId: selectedDoctor.id,
       patientId: patientId,
@@ -167,12 +158,11 @@ const BookDoctorPage = () => {
       type: consultationType,
       price: selectedDoctor.price,
       paymentStatus: 'pending',
-      symptoms: "" // Can be updated later
+      symptoms: ""
     };
 
     const createdConsultation = db.consultations.create(newConsultation);
     
-    // Create transaction for the consultation
     db.transactions.payForConsultation(
       patientId, 
       createdConsultation.id, 
@@ -180,7 +170,6 @@ const BookDoctorPage = () => {
       selectedDoctor.name
     );
 
-    // Update consultation payment status
     db.consultations.update(createdConsultation.id, {
       paymentStatus: 'completed'
     });
@@ -218,7 +207,6 @@ const BookDoctorPage = () => {
         <h1 className="text-2xl font-semibold">Book a Consultation</h1>
       </div>
 
-      {/* Step indicator */}
       <div className="flex items-center justify-between mb-8 px-4">
         <div className="flex flex-col items-center">
           <div className={`w-8 h-8 rounded-full flex items-center justify-center ${bookingStep >= 1 ? 'bg-primary text-white' : 'bg-muted'}`}>
@@ -257,7 +245,6 @@ const BookDoctorPage = () => {
               <h2 className="text-xl font-medium">Select Consultation Details</h2>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Date picker */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Select Date</label>
                 <Popover>
@@ -283,7 +270,6 @@ const BookDoctorPage = () => {
                 </Popover>
               </div>
 
-              {/* Time picker */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Select Time</label>
                 <Select onValueChange={setTime}>
@@ -303,7 +289,6 @@ const BookDoctorPage = () => {
                 </Select>
               </div>
 
-              {/* Consultation type */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">Consultation Type</label>
                 <div className="grid grid-cols-3 gap-2">
@@ -503,7 +488,6 @@ const BookDoctorPage = () => {
             </CardFooter>
           </Card>
 
-          {/* Confirmation Dialog */}
           <Dialog open={showConfirmation} onOpenChange={setShowConfirmation}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
