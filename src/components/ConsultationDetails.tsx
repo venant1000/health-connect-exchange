@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Calendar, Clock, MapPin, Stethoscope, Video, MessageSquare, Phone, FileText, ClipboardList } from "lucide-react";
 import { Consultation } from "@/services/database";
+import { useToast } from "@/hooks/use-toast";
 
 interface ConsultationDetailsProps {
   consultation: Consultation | null;
@@ -21,6 +22,8 @@ const ConsultationDetails = ({
   onJoin,
   onMessage
 }: ConsultationDetailsProps) => {
+  const { toast } = useToast();
+  
   if (!consultation) return null;
 
   const getStatusColor = () => {
@@ -49,6 +52,32 @@ const ConsultationDetails = ({
       default:
         return <Stethoscope className="h-4 w-4 mr-1.5" />;
     }
+  };
+
+  const handleJoin = () => {
+    // Check if the consultation time has arrived
+    if (consultation.status === 'upcoming') {
+      const [consultationDate, consultationYear] = consultation.date.split(', ');
+      const fullDateStr = `${consultationDate}, ${consultationYear} ${consultation.time}`;
+      const consultationDateTime = new Date(fullDateStr);
+      const now = new Date();
+      
+      // Allow joining 10 minutes before the scheduled time
+      const tenMinutesBeforeConsultation = new Date(consultationDateTime);
+      tenMinutesBeforeConsultation.setMinutes(consultationDateTime.getMinutes() - 10);
+      
+      if (now < tenMinutesBeforeConsultation) {
+        toast({
+          title: "Cannot join yet",
+          description: `This consultation is scheduled for ${consultation.date} at ${consultation.time}. You can join 10 minutes before the scheduled time.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
+    // If time check passes, call the join handler
+    onJoin();
   };
 
   return (
@@ -128,7 +157,7 @@ const ConsultationDetails = ({
           
           <div className="flex flex-col sm:flex-row gap-2 pt-2">
             {consultation.status === 'upcoming' && (
-              <Button className="flex-1" onClick={onJoin}>
+              <Button className="flex-1" onClick={handleJoin}>
                 {consultation.type === 'video' ? <Video className="h-4 w-4 mr-2" /> : 
                  consultation.type === 'audio' ? <Phone className="h-4 w-4 mr-2" /> : 
                  <MessageSquare className="h-4 w-4 mr-2" />}

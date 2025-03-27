@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
 
 interface ConsultationCardProps {
   id: string;
@@ -39,6 +40,8 @@ const ConsultationCard = ({
   actionIcon,
   roomId,
 }: ConsultationCardProps) => {
+  const { toast } = useToast();
+  
   const getStatusColor = () => {
     switch (status) {
       case 'upcoming':
@@ -64,6 +67,34 @@ const ConsultationCard = ({
         return <MessageSquare className="h-4 w-4 mr-1.5" />;
       default:
         return <Stethoscope className="h-4 w-4 mr-1.5" />;
+    }
+  };
+
+  const handleActionClick = () => {
+    // For upcoming consultations, check if the time has arrived
+    if (status === 'upcoming' && !actionLabel) {
+      const [consultationDate, consultationYear] = date.split(', ');
+      const fullDateStr = `${consultationDate}, ${consultationYear} ${time}`;
+      const consultationDateTime = new Date(fullDateStr);
+      const now = new Date();
+      
+      // Allow joining 10 minutes before the scheduled time
+      const tenMinutesBeforeConsultation = new Date(consultationDateTime);
+      tenMinutesBeforeConsultation.setMinutes(consultationDateTime.getMinutes() - 10);
+      
+      if (now < tenMinutesBeforeConsultation) {
+        toast({
+          title: "Cannot join yet",
+          description: `This consultation is scheduled for ${date} at ${time}. You can join 10 minutes before the scheduled time.`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+    
+    // If time check passes or not needed, call the original action handler
+    if (onActionClick) {
+      onActionClick();
     }
   };
 
@@ -127,7 +158,7 @@ const ConsultationCard = ({
                 variant="default" 
                 size="sm"
                 className="text-xs"
-                onClick={onActionClick}
+                onClick={handleActionClick}
               >
                 {actionIcon}{actionIcon && ' '}{actionLabel}
               </Button>
@@ -138,7 +169,7 @@ const ConsultationCard = ({
                 variant="default" 
                 size="sm"
                 className="text-xs"
-                onClick={onActionClick}
+                onClick={handleActionClick}
               >
                 Join Now
               </Button>

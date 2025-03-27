@@ -43,7 +43,7 @@ const DoctorCard = ({
     if (onClick) {
       onClick();
     } else {
-      // Default booking flow if no onClick provided
+      // Use real data by including the doctorId in the URL
       navigate(`/patient-dashboard/book-doctor?doctorId=${id}`);
     }
   };

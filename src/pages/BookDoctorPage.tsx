@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { 
   ArrowLeft, 
@@ -10,8 +10,7 @@ import {
   Video, 
   MessageSquare, 
   Phone,
-  CheckCircle,
-  DollarSign
+  CheckCircle
 } from "lucide-react";
 import { format } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -42,43 +41,8 @@ import {
   DialogHeader, 
   DialogTitle 
 } from "@/components/ui/dialog";
-
-// Sample doctor data
-const doctors = [
-  {
-    id: "1",
-    name: "Dr. Emma Wilson",
-    specialty: "Cardiologist",
-    avatar: "",
-    rating: 4.8,
-    experience: 12,
-    location: "New York",
-    price: 120,
-    availability: "Mon-Fri",
-  },
-  {
-    id: "2",
-    name: "Dr. Michael Chen",
-    specialty: "Neurologist",
-    avatar: "",
-    rating: 4.5,
-    experience: 8,
-    location: "San Francisco",
-    price: 100,
-    availability: "Mon, Wed, Fri",
-  },
-  {
-    id: "3",
-    name: "Dr. Lisa Johnson",
-    specialty: "Dermatologist",
-    avatar: "",
-    rating: 4.9,
-    experience: 15,
-    location: "Chicago",
-    price: 140,
-    availability: "Tue-Sat",
-  },
-];
+import { db, Doctor, Consultation } from "@/services/database";
+import { useAuth } from "@/services/auth";
 
 // Available time slots
 const timeSlots = [
@@ -96,21 +60,43 @@ const consultationTypes = [
 
 const BookDoctorPage = () => {
   const navigate = useNavigate();
-  const { doctorId } = useParams();
+  const [searchParams] = useSearchParams();
+  const doctorIdParam = searchParams.get('doctorId');
   const { toast } = useToast();
+  const { user, patientId } = useAuth();
   
-  // Find doctor by ID
-  const doctor = doctors.find(d => d.id === doctorId) || doctors[0];
+  // State for doctors
+  const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
 
   // Booking state
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [time, setTime] = useState<string | undefined>();
-  const [consultationType, setConsultationType] = useState<string>("video");
+  const [consultationType, setConsultationType] = useState<"video" | "audio" | "chat">("video");
   const [bookingStep, setBookingStep] = useState(1);
   const [isSearching, setIsSearching] = useState(false);
   const [isFound, setIsFound] = useState(false);
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+
+  // Fetch doctors from the database
+  useEffect(() => {
+    const fetchDoctors = () => {
+      const allDoctors = db.doctors.getAll();
+      const approvedDoctors = allDoctors.filter(doctor => doctor.status === 'approved');
+      setDoctors(approvedDoctors);
+      
+      // If doctorId is provided in URL params, select that doctor
+      if (doctorIdParam) {
+        const doctor = approvedDoctors.find(d => d.id === doctorIdParam);
+        if (doctor) {
+          setSelectedDoctor(doctor);
+        }
+      }
+    };
+    
+    fetchDoctors();
+  }, [doctorIdParam]);
 
   // Simulate searching for available doctors
   useEffect(() => {
@@ -138,7 +124,67 @@ const BookDoctorPage = () => {
     setBookingStep(2);
   };
 
+  const handleSelectDoctor = (doctor: Doctor) => {
+    setSelectedDoctor(doctor);
+    setBookingStep(3);
+  };
+
   const handleConfirm = () => {
+    if (!selectedDoctor || !patientId || !date || !time) {
+      toast({
+        title: "Booking failed",
+        description: "Missing required information for booking",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Create a new consultation in the database
+    const patient = db.patients.getById(patientId);
+    
+    if (!patient) {
+      toast({
+        title: "Booking failed",
+        description: "Patient information not found",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const formattedDate = format(date, "MMM d, yyyy");
+    const totalPrice = selectedDoctor.price * 1.05; // Including platform fee
+
+    // Create the consultation
+    const newConsultation: Omit<Consultation, 'id'> = {
+      doctorId: selectedDoctor.id,
+      patientId: patientId,
+      doctorName: selectedDoctor.name,
+      doctorSpecialty: selectedDoctor.specialty,
+      patientName: patient.name,
+      status: 'pending',
+      date: formattedDate,
+      time: time,
+      type: consultationType,
+      price: selectedDoctor.price,
+      paymentStatus: 'pending',
+      symptoms: "" // Can be updated later
+    };
+
+    const createdConsultation = db.consultations.create(newConsultation);
+    
+    // Create transaction for the consultation
+    db.transactions.payForConsultation(
+      patientId, 
+      createdConsultation.id, 
+      totalPrice, 
+      selectedDoctor.name
+    );
+
+    // Update consultation payment status
+    db.consultations.update(createdConsultation.id, {
+      paymentStatus: 'completed'
+    });
+
     setIsConfirmed(true);
     setShowConfirmation(true);
   };
@@ -149,7 +195,7 @@ const BookDoctorPage = () => {
     
     toast({
       title: "Booking successful!",
-      description: `Your appointment with ${doctor.name} is confirmed for ${date && format(date, "MMM d, yyyy")} at ${time}.`,
+      description: `Your appointment with ${selectedDoctor?.name} is confirmed for ${date && format(date, "MMM d, yyyy")} at ${time}.`,
     });
   };
 
@@ -269,7 +315,7 @@ const BookDoctorPage = () => {
                         type="button"
                         variant={consultationType === type.id ? "default" : "outline"}
                         className="flex flex-col h-auto py-4"
-                        onClick={() => setConsultationType(type.id)}
+                        onClick={() => setConsultationType(type.id as "video" | "audio" | "chat")}
                       >
                         <Icon className="h-5 w-5 mb-1" />
                         <span className="text-xs">{type.label}</span>
@@ -313,33 +359,50 @@ const BookDoctorPage = () => {
                   <p className="text-sm text-muted-foreground mb-4">
                     Available doctors for {date && format(date, "MMM d, yyyy")} at {time}:
                   </p>
-                  <div 
-                    className="p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
-                    onClick={() => setBookingStep(3)}
-                  >
-                    <div className="flex items-center space-x-4">
-                      <Avatar className="h-12 w-12 border">
-                        <AvatarImage src={doctor.avatar} />
-                        <AvatarFallback className="bg-primary/10 text-primary text-lg">
-                          {doctor.name.split(' ').map(n => n[0]).join('')}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <h3 className="font-medium">{doctor.name}</h3>
-                        <p className="text-sm text-muted-foreground">{doctor.specialty}</p>
-                        <div className="flex items-center mt-1">
-                          <MapPin className="h-3.5 w-3.5 text-muted-foreground mr-1" />
-                          <span className="text-xs text-muted-foreground">{doctor.location}</span>
+                  
+                  {doctors.length > 0 ? (
+                    doctors.map(doctor => (
+                      <div 
+                        key={doctor.id}
+                        className="p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors"
+                        onClick={() => handleSelectDoctor(doctor)}
+                      >
+                        <div className="flex items-center space-x-4">
+                          <Avatar className="h-12 w-12 border">
+                            <AvatarImage src={doctor.avatar} />
+                            <AvatarFallback className="bg-primary/10 text-primary text-lg">
+                              {doctor.name.split(' ').map(n => n[0]).join('')}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex-1">
+                            <h3 className="font-medium">{doctor.name}</h3>
+                            <p className="text-sm text-muted-foreground">{doctor.specialty}</p>
+                            <div className="flex items-center mt-1">
+                              <MapPin className="h-3.5 w-3.5 text-muted-foreground mr-1" />
+                              <span className="text-xs text-muted-foreground">{doctor.location}</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                              ${doctor.price}
+                            </Badge>
+                            <p className="text-xs text-muted-foreground mt-1">Available {doctor.availability}</p>
+                          </div>
                         </div>
                       </div>
-                      <div className="text-right">
-                        <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
-                          ${doctor.price}
-                        </Badge>
-                        <p className="text-xs text-muted-foreground mt-1">Available Now</p>
-                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8">
+                      <p>No doctors available at the moment.</p>
+                      <Button
+                        variant="outline"
+                        className="mt-4"
+                        onClick={() => setBookingStep(1)}
+                      >
+                        Try different time
+                      </Button>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
             </CardContent>
@@ -347,17 +410,12 @@ const BookDoctorPage = () => {
               <Button variant="outline" onClick={() => setBookingStep(1)}>
                 Back
               </Button>
-              {isFound && (
-                <Button onClick={() => setBookingStep(3)}>
-                  Select Doctor
-                </Button>
-              )}
             </CardFooter>
           </Card>
         </motion.div>
       )}
 
-      {bookingStep === 3 && (
+      {bookingStep === 3 && selectedDoctor && (
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -370,17 +428,17 @@ const BookDoctorPage = () => {
             <CardContent className="space-y-6">
               <div className="flex items-center space-x-4">
                 <Avatar className="h-16 w-16 border">
-                  <AvatarImage src={doctor.avatar} />
+                  <AvatarImage src={selectedDoctor.avatar} />
                   <AvatarFallback className="bg-primary/10 text-primary text-lg">
-                    {doctor.name.split(' ').map(n => n[0]).join('')}
+                    {selectedDoctor.name.split(' ').map(n => n[0]).join('')}
                   </AvatarFallback>
                 </Avatar>
                 <div>
-                  <h3 className="font-medium text-lg">{doctor.name}</h3>
-                  <p className="text-sm text-muted-foreground">{doctor.specialty}</p>
+                  <h3 className="font-medium text-lg">{selectedDoctor.name}</h3>
+                  <p className="text-sm text-muted-foreground">{selectedDoctor.specialty}</p>
                   <div className="flex items-center mt-1">
                     <MapPin className="h-3.5 w-3.5 text-muted-foreground mr-1" />
-                    <span className="text-xs text-muted-foreground">{doctor.location}</span>
+                    <span className="text-xs text-muted-foreground">{selectedDoctor.location}</span>
                   </div>
                 </div>
               </div>
@@ -422,16 +480,16 @@ const BookDoctorPage = () => {
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm">Consultation Fee</span>
-                  <span>${doctor.price.toFixed(2)}</span>
+                  <span>${selectedDoctor.price.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm">Platform Fee</span>
-                  <span>${(doctor.price * 0.05).toFixed(2)}</span>
+                  <span>${(selectedDoctor.price * 0.05).toFixed(2)}</span>
                 </div>
                 <Separator className="my-2" />
                 <div className="flex justify-between items-center">
                   <span className="font-medium">Total</span>
-                  <span className="font-medium">${(doctor.price * 1.05).toFixed(2)}</span>
+                  <span className="font-medium">${(selectedDoctor.price * 1.05).toFixed(2)}</span>
                 </div>
               </div>
             </CardContent>
@@ -458,8 +516,8 @@ const BookDoctorPage = () => {
                 <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mb-4">
                   <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
                 </div>
-                <h3 className="text-lg font-medium text-center mb-1">{doctor.name}</h3>
-                <p className="text-sm text-muted-foreground text-center mb-4">{doctor.specialty}</p>
+                <h3 className="text-lg font-medium text-center mb-1">{selectedDoctor.name}</h3>
+                <p className="text-sm text-muted-foreground text-center mb-4">{selectedDoctor.specialty}</p>
                 <div className="w-full space-y-2">
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">Date:</span>

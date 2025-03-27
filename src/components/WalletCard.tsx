@@ -2,11 +2,12 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Wallet, Plus, History, CreditCard, CheckCircle } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Wallet, Plus, History } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import BankDetailsForm from "./BankDetailsForm";
+import { useAuth } from "@/services/auth";
+import { db } from "@/services/database";
 
 interface WalletCardProps {
   balance: number;
@@ -16,10 +17,16 @@ interface WalletCardProps {
 
 const WalletCard = ({ balance, onAddFunds, onViewHistory }: WalletCardProps) => {
   const { toast } = useToast();
+  const { patientId } = useAuth();
   const [isAddFundsOpen, setIsAddFundsOpen] = useState(false);
   
   const handleAddFunds = (amount: number) => {
-    onAddFunds(amount);
+    // Add funds to the wallet using the database service
+    if (patientId) {
+      db.transactions.addFunds(patientId, amount);
+      onAddFunds(amount);
+    }
+    
     setIsAddFundsOpen(false);
     
     toast({
