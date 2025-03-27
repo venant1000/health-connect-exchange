@@ -1,3 +1,5 @@
+
+// Only updating the handleConfirm function where the error is located
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -163,11 +165,13 @@ const BookDoctorPage = () => {
 
     const createdConsultation = db.consultations.create(newConsultation);
     
+    // Fix the missing parameter issue by adding doctorId
     db.transactions.payForConsultation(
       patientId, 
       createdConsultation.id, 
       totalPrice, 
-      selectedDoctor.name
+      selectedDoctor.name,
+      selectedDoctor.id // Add the missing doctorId parameter
     );
 
     db.consultations.update(createdConsultation.id, {

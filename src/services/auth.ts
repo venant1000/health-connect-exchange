@@ -51,5 +51,10 @@ export const authService = {
   getUserRole: (): 'patient' | 'doctor' | 'admin' | null => {
     const user = authService.getCurrentUser();
     return user ? user.type : null;
+  },
+  
+  // Add this new method to fix the error
+  getUserTransactions: (userId: string) => {
+    return db.transactions.getByPatientId(userId);
   }
 };

@@ -42,7 +42,8 @@ export function useAuth() {
   const getWalletBalance = () => {
     if (!patientId) return 0;
     
-    const transactions = authService.getWalletTransactions(patientId);
+    // Use the transactions data from the database service instead
+    const transactions = authService.getUserTransactions?.(patientId) || [];
     return transactions.reduce((balance, t) => {
       if (t.type === 'credit') {
         return balance + t.amount;
