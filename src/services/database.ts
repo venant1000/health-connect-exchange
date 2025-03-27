@@ -1,3 +1,4 @@
+
 // Database simulation using localStorage for browser compatibility
 // Define types for our data models
 export interface Doctor {
@@ -45,7 +46,7 @@ export interface Consultation {
   doctorName: string;
   doctorSpecialty: string;
   patientName: string;
-  status: 'pending' | 'upcoming' | 'completed' | 'cancelled' | 'negotiating'; // Added 'negotiating' status
+  status: 'pending' | 'upcoming' | 'completed' | 'cancelled' | 'negotiating';
   date: string;
   time: string;
   type: 'video' | 'audio' | 'chat';
@@ -98,6 +99,36 @@ export interface PriceNegotiation {
   status: 'pending' | 'accepted' | 'rejected';
   initiatedBy: 'doctor' | 'patient';
   timestamp: string;
+}
+
+export interface HealthMetric {
+  id: string;
+  patientId: string;
+  type: string;
+  value: number;
+  unit: string;
+  date: string;
+  notes?: string;
+}
+
+export interface UserProfileData {
+  id: string;
+  userId: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  location?: string;
+  height?: number;
+  weight?: number;
+  bloodType?: string;
+  allergies?: string[];
+  chronicConditions?: string[];
+  medications?: string[];
+  emergencyContact?: {
+    name: string;
+    relationship: string;
+    phone: string;
+  };
 }
 
 // Helper functions to work with localStorage
@@ -336,7 +367,8 @@ export const initializeDatabase = () => {
         date: "Oct 2, 2023",
         description: "Payment for Dr. Emma Wilson consultation",
         patientId: "1",
-        consultationId: "1"
+        consultationId: "1",
+        doctorId: "2"
       },
       {
         id: "3",
@@ -345,7 +377,8 @@ export const initializeDatabase = () => {
         date: "Oct 3, 2023",
         description: "Payment for Dr. Michael Chen consultation",
         patientId: "1",
-        consultationId: "2"
+        consultationId: "2",
+        doctorId: "3"
       }
     ];
     setItem('transactions', transactions);
@@ -356,59 +389,80 @@ export const initializeDatabase = () => {
     setItem('priceNegotiations', []);
   }
 
+  // Initialize health metrics
+  if (!localStorage.getItem('healthMetrics')) {
+    setItem('healthMetrics', []);
+  }
+
+  // Initialize user profile data
+  if (!localStorage.getItem('userProfiles')) {
+    setItem('userProfiles', []);
+  }
+
   console.log("Database initialized with sample data");
 };
 
 // Run initialization
 initializeDatabase();
 
-// Database operations
-export const databaseService = {
+// SQLite-inspired database service
+class SQLiteSimulationService {
+  // Generate a UUID for IDs
+  private generateId(): string {
+    return crypto.randomUUID();
+  }
+
   // User operations
-  users: {
+  users = {
     login: (email: string, password: string): User | null => {
       const users = getItem<User[]>('users', []);
       const user = users.find(u => u.email === email && u.password === password);
       return user || null;
     },
+    
     register: (user: Omit<User, 'id'>): User => {
       const users = getItem<User[]>('users', []);
-      const id = crypto.randomUUID();
+      const id = this.generateId();
       const newUser: User = { ...user, id };
       users.push(newUser);
       setItem('users', users);
       return newUser;
     },
+    
     getById: (id: string): User | null => {
       const users = getItem<User[]>('users', []);
       const user = users.find(u => u.id === id);
       return user || null;
     },
+    
     getByEmail: (email: string): User | null => {
       const users = getItem<User[]>('users', []);
       const user = users.find(u => u.email === email);
       return user || null;
     }
-  },
+  };
   
   // Doctor operations
-  doctors: {
+  doctors = {
     getAll: (): Doctor[] => {
       return getItem<Doctor[]>('doctors', []);
     },
+    
     getById: (id: string): Doctor | null => {
       const doctors = getItem<Doctor[]>('doctors', []);
       const doctor = doctors.find(d => d.id === id);
       return doctor || null;
     },
+    
     create: (doctor: Omit<Doctor, 'id'>): Doctor => {
       const doctors = getItem<Doctor[]>('doctors', []);
-      const id = crypto.randomUUID();
+      const id = this.generateId();
       const newDoctor: Doctor = { ...doctor, id };
       doctors.push(newDoctor);
       setItem('doctors', doctors);
       return newDoctor;
     },
+    
     update: (id: string, updates: Partial<Doctor>): Doctor | null => {
       const doctors = getItem<Doctor[]>('doctors', []);
       const index = doctors.findIndex(d => d.id === id);
@@ -419,16 +473,19 @@ export const databaseService = {
       setItem('doctors', doctors);
       return updatedDoctor;
     },
+    
     delete: (id: string): boolean => {
       const doctors = getItem<Doctor[]>('doctors', []);
       const filtered = doctors.filter(d => d.id !== id);
       setItem('doctors', filtered);
       return filtered.length < doctors.length;
     },
+    
     getByStatus: (status: Doctor['status']): Doctor[] => {
       const doctors = getItem<Doctor[]>('doctors', []);
       return doctors.filter(d => d.status === status);
     },
+    
     uploadLicenseDocument: (id: string, documentUrl: string): Doctor | null => {
       const doctors = getItem<Doctor[]>('doctors', []);
       const index = doctors.findIndex(d => d.id === id);
@@ -438,10 +495,12 @@ export const databaseService = {
       setItem('doctors', doctors);
       return doctors[index];
     },
+    
     getPendingVerifications: (): Doctor[] => {
       const doctors = getItem<Doctor[]>('doctors', []);
       return doctors.filter(d => d.status === 'pending');
     },
+    
     updateVerificationStatus: (id: string, status: 'approved' | 'rejected'): Doctor | null => {
       const doctors = getItem<Doctor[]>('doctors', []);
       const index = doctors.findIndex(d => d.id === id);
@@ -451,26 +510,29 @@ export const databaseService = {
       setItem('doctors', doctors);
       return doctors[index];
     }
-  },
+  };
   
   // Patient operations
-  patients: {
+  patients = {
     getAll: (): Patient[] => {
       return getItem<Patient[]>('patients', []);
     },
+    
     getById: (id: string): Patient | null => {
       const patients = getItem<Patient[]>('patients', []);
       const patient = patients.find(p => p.id === id);
       return patient || null;
     },
+    
     create: (patient: Omit<Patient, 'id'>): Patient => {
       const patients = getItem<Patient[]>('patients', []);
-      const id = crypto.randomUUID();
+      const id = this.generateId();
       const newPatient: Patient = { ...patient, id };
       patients.push(newPatient);
       setItem('patients', patients);
       return newPatient;
     },
+    
     update: (id: string, updates: Partial<Patient>): Patient | null => {
       const patients = getItem<Patient[]>('patients', []);
       const index = patients.findIndex(p => p.id === id);
@@ -481,29 +543,32 @@ export const databaseService = {
       setItem('patients', patients);
       return updatedPatient;
     },
+    
     delete: (id: string): boolean => {
       const patients = getItem<Patient[]>('patients', []);
       const filtered = patients.filter(p => p.id !== id);
       setItem('patients', filtered);
       return filtered.length < patients.length;
     }
-  },
+  };
   
   // Consultation operations
-  consultations: {
+  consultations = {
     getAll: (): Consultation[] => {
       return getItem<Consultation[]>('consultations', []);
     },
+    
     getById: (id: string): Consultation | null => {
       const consultations = getItem<Consultation[]>('consultations', []);
       const consultation = consultations.find(c => c.id === id);
       return consultation || null;
     },
+    
     create: (consultation: Omit<Consultation, 'id'>): Consultation => {
       const consultations = getItem<Consultation[]>('consultations', []);
-      const id = crypto.randomUUID();
+      const id = this.generateId();
       // Generate a unique room ID for video calls
-      const roomId = `room_${crypto.randomUUID().split('-')[0]}`;
+      const roomId = `room_${this.generateId().split('-')[0]}`;
       
       const newConsultation: Consultation = { 
         ...consultation, 
@@ -515,6 +580,7 @@ export const databaseService = {
       setItem('consultations', consultations);
       return newConsultation;
     },
+    
     update: (id: string, updates: Partial<Consultation>): Consultation | null => {
       const consultations = getItem<Consultation[]>('consultations', []);
       const index = consultations.findIndex(c => c.id === id);
@@ -525,24 +591,29 @@ export const databaseService = {
       setItem('consultations', consultations);
       return updatedConsultation;
     },
+    
     delete: (id: string): boolean => {
       const consultations = getItem<Consultation[]>('consultations', []);
       const filtered = consultations.filter(c => c.id !== id);
       setItem('consultations', filtered);
       return filtered.length < consultations.length;
     },
+    
     getByDoctorId: (doctorId: string): Consultation[] => {
       const consultations = getItem<Consultation[]>('consultations', []);
       return consultations.filter(c => c.doctorId === doctorId);
     },
+    
     getByPatientId: (patientId: string): Consultation[] => {
       const consultations = getItem<Consultation[]>('consultations', []);
       return consultations.filter(c => c.patientId === patientId);
     },
+    
     getByStatus: (status: Consultation['status']): Consultation[] => {
       const consultations = getItem<Consultation[]>('consultations', []);
       return consultations.filter(c => c.status === status);
     },
+    
     getDoctorConsultations: (doctorId: string, status?: Consultation['status']): Consultation[] => {
       const consultations = getItem<Consultation[]>('consultations', []);
       if (status) {
@@ -550,6 +621,7 @@ export const databaseService = {
       }
       return consultations.filter(c => c.doctorId === doctorId);
     },
+    
     updateStatus: (id: string, status: Consultation['status']): Consultation | null => {
       const consultations = getItem<Consultation[]>('consultations', []);
       const index = consultations.findIndex(c => c.id === id);
@@ -559,6 +631,7 @@ export const databaseService = {
       setItem('consultations', consultations);
       return consultations[index];
     },
+    
     updatePrice: (id: string, newPrice: number): Consultation | null => {
       const consultations = getItem<Consultation[]>('consultations', []);
       const index = consultations.findIndex(c => c.id === id);
@@ -568,26 +641,29 @@ export const databaseService = {
       setItem('consultations', consultations);
       return consultations[index];
     }
-  },
+  };
   
   // Prescription operations
-  prescriptions: {
+  prescriptions = {
     getAll: (): Prescription[] => {
       return getItem<Prescription[]>('prescriptions', []);
     },
+    
     getById: (id: string): Prescription | null => {
       const prescriptions = getItem<Prescription[]>('prescriptions', []);
       const prescription = prescriptions.find(p => p.id === id);
       return prescription || null;
     },
+    
     create: (prescription: Omit<Prescription, 'id'>): Prescription => {
       const prescriptions = getItem<Prescription[]>('prescriptions', []);
-      const id = crypto.randomUUID();
+      const id = this.generateId();
       const newPrescription: Prescription = { ...prescription, id };
       prescriptions.push(newPrescription);
       setItem('prescriptions', prescriptions);
       return newPrescription;
     },
+    
     update: (id: string, updates: Partial<Prescription>): Prescription | null => {
       const prescriptions = getItem<Prescription[]>('prescriptions', []);
       const index = prescriptions.findIndex(p => p.id === id);
@@ -598,41 +674,47 @@ export const databaseService = {
       setItem('prescriptions', prescriptions);
       return updatedPrescription;
     },
+    
     delete: (id: string): boolean => {
       const prescriptions = getItem<Prescription[]>('prescriptions', []);
       const filtered = prescriptions.filter(p => p.id !== id);
       setItem('prescriptions', filtered);
       return filtered.length < prescriptions.length;
     },
+    
     getByPatientId: (patientId: string): Prescription[] => {
       const prescriptions = getItem<Prescription[]>('prescriptions', []);
       return prescriptions.filter(p => p.patientId === patientId);
     },
+    
     getByConsultationId: (consultationId: string): Prescription | null => {
       const prescriptions = getItem<Prescription[]>('prescriptions', []);
       const prescription = prescriptions.find(p => p.consultationId === consultationId);
       return prescription || null;
     }
-  },
+  };
   
   // Message operations
-  messages: {
+  messages = {
     getAll: (): Message[] => {
       return getItem<Message[]>('messages', []);
     },
+    
     getById: (id: string): Message | null => {
       const messages = getItem<Message[]>('messages', []);
       const message = messages.find(m => m.id === id);
       return message || null;
     },
+    
     create: (message: Omit<Message, 'id'>): Message => {
       const messages = getItem<Message[]>('messages', []);
-      const id = crypto.randomUUID();
+      const id = this.generateId();
       const newMessage: Message = { ...message, id };
       messages.push(newMessage);
       setItem('messages', messages);
       return newMessage;
     },
+    
     update: (id: string, updates: Partial<Message>): Message | null => {
       const messages = getItem<Message[]>('messages', []);
       const index = messages.findIndex(m => m.id === id);
@@ -643,17 +725,20 @@ export const databaseService = {
       setItem('messages', messages);
       return updatedMessage;
     },
+    
     delete: (id: string): boolean => {
       const messages = getItem<Message[]>('messages', []);
       const filtered = messages.filter(m => m.id !== id);
       setItem('messages', filtered);
       return filtered.length < messages.length;
     },
+    
     getByConsultationId: (consultationId: string): Message[] => {
       const messages = getItem<Message[]>('messages', []);
       return messages.filter(m => m.consultationId === consultationId)
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     },
+    
     markAsRead: (messageId: string): boolean => {
       const messages = getItem<Message[]>('messages', []);
       const index = messages.findIndex(m => m.id === messageId);
@@ -663,40 +748,46 @@ export const databaseService = {
       setItem('messages', messages);
       return true;
     },
+    
     getUnreadCount: (userId: string): number => {
       const messages = getItem<Message[]>('messages', []);
       return messages.filter(m => m.senderId !== userId && !m.isRead).length;
     }
-  },
+  };
   
   // Transaction operations
-  transactions: {
+  transactions = {
     getAll: (): Transaction[] => {
       return getItem<Transaction[]>('transactions', []);
     },
+    
     getById: (id: string): Transaction | null => {
       const transactions = getItem<Transaction[]>('transactions', []);
       const transaction = transactions.find(t => t.id === id);
       return transaction || null;
     },
+    
     create: (transaction: Omit<Transaction, 'id'>): Transaction => {
       const transactions = getItem<Transaction[]>('transactions', []);
-      const id = crypto.randomUUID();
+      const id = this.generateId();
       const newTransaction: Transaction = { ...transaction, id };
       transactions.push(newTransaction);
       setItem('transactions', transactions);
       return newTransaction;
     },
+    
     getByPatientId: (patientId: string): Transaction[] => {
       const transactions = getItem<Transaction[]>('transactions', []);
       return transactions.filter(t => t.patientId === patientId);
     },
+    
     getByDoctorId: (doctorId: string): Transaction[] => {
       const transactions = getItem<Transaction[]>('transactions', []);
       return transactions.filter(t => t.doctorId === doctorId);
     },
+    
     addFunds: (patientId: string, amount: number): Transaction => {
-      return databaseService.transactions.create({
+      return this.transactions.create({
         type: 'credit',
         amount,
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
@@ -704,8 +795,9 @@ export const databaseService = {
         patientId
       });
     },
+    
     payForConsultation: (patientId: string, consultationId: string, amount: number, doctorName: string, doctorId: string): Transaction => {
-      return databaseService.transactions.create({
+      return this.transactions.create({
         type: 'debit',
         amount,
         date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
@@ -715,31 +807,120 @@ export const databaseService = {
         doctorId
       });
     }
-  },
+  };
+
+  // Health metrics operations
+  healthMetrics = {
+    getAll: (): HealthMetric[] => {
+      return getItem<HealthMetric[]>('healthMetrics', []);
+    },
+    
+    getById: (id: string): HealthMetric | null => {
+      const metrics = getItem<HealthMetric[]>('healthMetrics', []);
+      return metrics.find(m => m.id === id) || null;
+    },
+    
+    create: (metric: Omit<HealthMetric, 'id'>): HealthMetric => {
+      const metrics = getItem<HealthMetric[]>('healthMetrics', []);
+      const id = this.generateId();
+      const newMetric: HealthMetric = { ...metric, id };
+      metrics.push(newMetric);
+      setItem('healthMetrics', metrics);
+      return newMetric;
+    },
+    
+    update: (id: string, updates: Partial<HealthMetric>): HealthMetric | null => {
+      const metrics = getItem<HealthMetric[]>('healthMetrics', []);
+      const index = metrics.findIndex(m => m.id === id);
+      if (index === -1) return null;
+      
+      const updatedMetric = { ...metrics[index], ...updates };
+      metrics[index] = updatedMetric;
+      setItem('healthMetrics', metrics);
+      return updatedMetric;
+    },
+    
+    delete: (id: string): boolean => {
+      const metrics = getItem<HealthMetric[]>('healthMetrics', []);
+      const filtered = metrics.filter(m => m.id !== id);
+      setItem('healthMetrics', filtered);
+      return filtered.length < metrics.length;
+    },
+    
+    getByPatientId: (patientId: string): HealthMetric[] => {
+      const metrics = getItem<HealthMetric[]>('healthMetrics', []);
+      return metrics.filter(m => m.patientId === patientId);
+    },
+    
+    getByType: (patientId: string, type: string): HealthMetric[] => {
+      const metrics = getItem<HealthMetric[]>('healthMetrics', []);
+      return metrics
+        .filter(m => m.patientId === patientId && m.type === type)
+        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    }
+  };
+  
+  // User profile operations
+  userProfiles = {
+    getById: (userId: string): UserProfileData | null => {
+      const profiles = getItem<UserProfileData[]>('userProfiles', []);
+      return profiles.find(p => p.userId === userId) || null;
+    },
+    
+    create: (profile: Omit<UserProfileData, 'id'>): UserProfileData => {
+      const profiles = getItem<UserProfileData[]>('userProfiles', []);
+      const id = this.generateId();
+      const newProfile: UserProfileData = { ...profile, id };
+      profiles.push(newProfile);
+      setItem('userProfiles', profiles);
+      return newProfile;
+    },
+    
+    update: (userId: string, updates: Partial<UserProfileData>): UserProfileData | null => {
+      const profiles = getItem<UserProfileData[]>('userProfiles', []);
+      const index = profiles.findIndex(p => p.userId === userId);
+      
+      if (index === -1) {
+        // If no profile exists, create a new one
+        const newProfile = this.userProfiles.create({ userId, ...updates });
+        return newProfile;
+      }
+      
+      // Update existing profile
+      const updatedProfile = { ...profiles[index], ...updates };
+      profiles[index] = updatedProfile;
+      setItem('userProfiles', profiles);
+      return updatedProfile;
+    }
+  };
 
   // NEW: Price negotiation operations
-  priceNegotiations: {
+  priceNegotiations = {
     getAll: (): PriceNegotiation[] => {
       return getItem<PriceNegotiation[]>('priceNegotiations', []);
     },
+    
     getById: (id: string): PriceNegotiation | null => {
       const negotiations = getItem<PriceNegotiation[]>('priceNegotiations', []);
       return negotiations.find(n => n.id === id) || null;
     },
+    
     create: (negotiation: Omit<PriceNegotiation, 'id'>): PriceNegotiation => {
       const negotiations = getItem<PriceNegotiation[]>('priceNegotiations', []);
-      const id = crypto.randomUUID();
+      const id = this.generateId();
       const newNegotiation: PriceNegotiation = { ...negotiation, id };
       negotiations.push(newNegotiation);
       setItem('priceNegotiations', negotiations);
       return newNegotiation;
     },
+    
     getByConsultationId: (consultationId: string): PriceNegotiation[] => {
       const negotiations = getItem<PriceNegotiation[]>('priceNegotiations', []);
       return negotiations
         .filter(n => n.consultationId === consultationId)
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     },
+    
     update: (id: string, status: 'accepted' | 'rejected'): PriceNegotiation | null => {
       const negotiations = getItem<PriceNegotiation[]>('priceNegotiations', []);
       const index = negotiations.findIndex(n => n.id === id);
@@ -749,10 +930,10 @@ export const databaseService = {
       setItem('priceNegotiations', negotiations);
       return negotiations[index];
     }
-  },
+  };
   
-  // NEW: Analytics operations for admin dashboard
-  analytics: {
+  // Analytics operations for admin dashboard
+  analytics = {
     getConsultationStats: () => {
       const consultations = getItem<Consultation[]>('consultations', []);
       return {
@@ -764,6 +945,7 @@ export const databaseService = {
         negotiating: consultations.filter(c => c.status === 'negotiating').length
       };
     },
+    
     getDoctorStats: () => {
       const doctors = getItem<Doctor[]>('doctors', []);
       return {
@@ -773,6 +955,7 @@ export const databaseService = {
         rejected: doctors.filter(d => d.status === 'rejected').length
       };
     },
+    
     getPatientStats: () => {
       const patients = getItem<Patient[]>('patients', []);
       return {
@@ -781,6 +964,7 @@ export const databaseService = {
         inactive: patients.filter(p => p.status === 'inactive').length
       };
     },
+    
     getTransactionStats: () => {
       const transactions = getItem<Transaction[]>('transactions', []);
       return {
@@ -790,6 +974,7 @@ export const databaseService = {
         transactionCount: transactions.length
       };
     },
+    
     getRevenueByMonth: () => {
       const transactions = getItem<Transaction[]>('transactions', []);
       const monthlyRevenue: Record<string, number> = {};
@@ -810,7 +995,9 @@ export const databaseService = {
         amount
       }));
     }
-  }
-};
+  };
+}
 
-export { databaseService as db };
+// Create and export the database service
+const dbService = new SQLiteSimulationService();
+export const db = dbService;

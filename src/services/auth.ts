@@ -53,7 +53,7 @@ export const authService = {
     return user ? user.type : null;
   },
   
-  // Add this new method to fix the error
+  // Get user transactions
   getUserTransactions: (userId: string) => {
     return db.transactions.getByPatientId(userId);
   }
